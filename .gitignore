@@ -1,0 +1,9 @@
+dist/
+__pycache__/
+*.pyc
+.DS_Store
+*.sqlite
+*.sqlite-*
+*.log
+/나무덤프/
+build/.venv/
