@@ -23,6 +23,7 @@ web/katex/         수식용 KaTeX CSS와 글꼴(MIT)
 build/             앱 묶기(make_app.py), 실행기(launcher.sh), 아이콘과 .dmg 배경 그리기
 tools/             덤프 조사 도구(classmap.json 재료 뽑기)
 tests/             서버 API 시험(가짜 덤프 사용)
+docs/              README에 쓰는 그림
 ```
 
 ## 실행과 시험
