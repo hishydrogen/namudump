@@ -897,7 +897,6 @@
     root.querySelectorAll('.nd-embed').forEach((b) => {
       const link = b.dataset.link, kind = b.dataset.kind || '외부 콘텐츠';
       if (b.dataset.embed) {
-        if (b.dataset.thumb) b.style.backgroundImage = `url("${b.dataset.thumb}")`;
         b.innerHTML = `<div class="ctl"><button class="play" type="button" aria-label="재생">${I.play}</button><span>${esc(kind)} (인터넷 필요)</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
         b.querySelector('.play').onclick = () => {
           const f = document.createElement('iframe');

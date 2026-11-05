@@ -382,7 +382,7 @@ class Handler(BaseHTTPRequestHandler):
         extra = {"Cache-Control": "no-cache"}
         if rel == "index.html":
             extra["Content-Security-Policy"] = (
-                "default-src 'self'; img-src 'self' https: http: data:; style-src 'self' 'unsafe-inline'; "
+                "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
                 "font-src 'self' data:; script-src 'self'; connect-src 'self'; "
                 "frame-src https:; media-src https: http:; "
                 "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
@@ -603,7 +603,7 @@ def run_native(url, srv):
         if sys.platform != "darwin":
             return
         try:
-            from AppKit import NSApplication, NSImage  # type: ignore
+            from AppKit import NSApplication, NSImage, NSWorkspace  # type: ignore
             from Foundation import NSBundle  # type: ignore
             info = NSBundle.mainBundle().infoDictionary()
             if info is not None:
@@ -612,11 +612,18 @@ def run_native(url, srv):
                 info["CFBundleShortVersionString"] = APP_VERSION
                 info["CFBundleVersion"] = APP_VERSION
                 info["NSHumanReadableCopyright"] = APP_COPYRIGHT
+            # 실행 중에는 macOS가 이 앱을 Python.app으로 알기 때문에 Dock 아이콘을 직접 넣어 준다.
+            # 앱 묶음의 아이콘을 시스템에게 받아 오면 Liquid Glass 렌더링과 현재 모양(다크 등)이 반영된다.
+            bundle = HERE.parents[1].parent
             icon = HERE / "icon.icns"
-            if icon.is_file():
+            img = None
+            if bundle.suffix == ".app":
+                img = NSWorkspace.sharedWorkspace().iconForFile_(str(bundle))
+                img.setSize_((512, 512))     # 기본 크기(32)로 두면 Dock에서 흐려질 수 있다
+            elif icon.is_file():
                 img = NSImage.alloc().initWithContentsOfFile_(str(icon))
-                if img:
-                    NSApplication.sharedApplication().setApplicationIconImage_(img)
+            if img:
+                NSApplication.sharedApplication().setApplicationIconImage_(img)
         except Exception:
             pass
 

@@ -4,19 +4,20 @@
     python3 build/make_app.py                 # dist/나무덤프.app 만들기
     python3 build/make_app.py --install DIR   # 만든 앱을 DIR에 덮어쓰기(예: "나무덤프")
     python3 build/make_app.py --dmg           # 배포용 dist/namudump-<버전>.dmg도 만들기
-    python3 build/make_app.py --icon          # build/icon_1024.png로 AppIcon.icns 다시 만들기(Pillow 필요)
+    python3 build/make_app.py --icon          # build/AppIcon.icon으로 아이콘 파일들 다시 만들기(Xcode 필요)
 
 앱은 bash 실행기(build/launcher.sh)가 Resources/app/namudump.py를 파이썬으로 실행하는 구조다.
+아이콘 원본은 Icon Composer 문서(build/AppIcon.icon)다. 컴파일한 결과도 저장소에 두므로
+아이콘을 고칠 때만 Xcode가 있으면 된다.
 """
 import argparse
-import io
 import os
 import plistlib
 import re
 import shutil
-import struct
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,22 +28,38 @@ APP_NAME = "나무덤프"
 _SRC = (ROOT / "namudump.py").read_text("utf-8")
 VERSION = re.search(r'^APP_VERSION = "([^"]+)"', _SRC, re.M).group(1)
 AUTHOR = re.search(r'^APP_AUTHOR = "([^"]+)"', _SRC, re.M).group(1)
+ICON_NAME = "AppIcon"
+ICTOOL = "/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool"
 
 
-def make_icns():
-    from PIL import Image  # type: ignore
-    src = Image.open(BUILD / "icon_1024.png").convert("RGBA")
+def make_icons():
+    """Icon Composer 문서를 컴파일한다.
 
-    def png(sz):
-        b = io.BytesIO()
-        src.resize((sz, sz), Image.LANCZOS).save(b, "PNG")
-        return b.getvalue()
+    Assets.car: macOS 26 이상의 Liquid Glass 아이콘(다크, 틴트, 투명 모양 포함)
+    AppIcon.icns: 그보다 오래된 macOS와 .dmg 볼륨 아이콘, 실행 중 Dock 아이콘
+    icon_1024.png, web/icon.png: 화면(처음 화면 로고, 파비콘)에 쓰는 그림
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(["xcrun", "actool", "--compile", tmp, "--platform", "macosx",
+                        "--minimum-deployment-target", "11.0", "--app-icon", ICON_NAME,
+                        "--output-partial-info-plist", tmp + "/icon-info.plist", str(BUILD / (ICON_NAME + ".icon"))],
+                       check=True, stdout=subprocess.DEVNULL)
+        for name in ("Assets.car", ICON_NAME + ".icns"):
+            shutil.copy(Path(tmp) / name, BUILD / name)
+    for out, size in ((BUILD / "icon_1024.png", 1024), (ROOT / "web/icon.png", 256)):
+        subprocess.run([ICTOOL, str(BUILD / (ICON_NAME + ".icon")), "--export-image", "--output-file", str(out),
+                        "--platform", "macOS", "--rendition", "Default",
+                        "--width", str(size), "--height", str(size), "--scale", "1"],
+                       check=True, stdout=subprocess.DEVNULL)
+    print("아이콘 파일 다시 만듦")
 
-    entries = [(b"icp4", 16), (b"icp5", 32), (b"icp6", 64), (b"ic07", 128), (b"ic08", 256), (b"ic09", 512),
-               (b"ic10", 1024), (b"ic11", 32), (b"ic12", 64), (b"ic13", 256), (b"ic14", 512)]
-    body = b"".join(t + struct.pack(">I", 8 + len(d)) + d for t, d in ((t, png(s)) for t, s in entries))
-    (BUILD / "AppIcon.icns").write_bytes(b"icns" + struct.pack(">I", 8 + len(body)) + body)
-    print("AppIcon.icns 다시 만듦")
+
+def sign(app):
+    """임시(ad-hoc) 서명. 이 맥에서 만든 앱은 격리 표시가 없어 경고 없이 열린다.
+    인터넷으로 내려받은 사람에게는 공증을 받지 않았으므로 여전히 경고가 뜬다."""
+    subprocess.run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(app)], check=True)
+    subprocess.run(["codesign", "--verify", "--strict", str(app)], check=True)
+    print("서명함(임시):", app)
 
 
 def build():
@@ -51,12 +68,13 @@ def build():
     (app / "Contents/MacOS").mkdir(parents=True)
     res = app / "Contents/Resources"
     (res / "app").mkdir(parents=True)
+    shutil.copy(BUILD / "Assets.car", res / "Assets.car")
     shutil.copy(BUILD / "AppIcon.icns", res / "AppIcon.icns")
     shutil.copy(BUILD / "AppIcon.icns", res / "app/icon.icns")
     plist = {
         "CFBundleName": APP_NAME, "CFBundleDisplayName": APP_NAME, "CFBundleIdentifier": "com.hishydrogen.namudump",
         "CFBundleVersion": VERSION, "CFBundleShortVersionString": VERSION, "CFBundlePackageType": "APPL",
-        "CFBundleExecutable": "NamuDump", "CFBundleIconFile": "AppIcon", "LSMinimumSystemVersion": "11.0",
+        "CFBundleExecutable": "NamuDump", "CFBundleIconFile": ICON_NAME, "CFBundleIconName": ICON_NAME, "LSMinimumSystemVersion": "11.0",
         "NSHighResolutionCapable": True, "CFBundleDevelopmentRegion": "ko",
         "LSApplicationCategoryType": "public.app-category.reference",
         "NSHumanReadableCopyright": "© 2026 " + AUTHOR,
@@ -72,6 +90,7 @@ def build():
     shutil.copytree(ROOT / "web", res / "app/web", ignore=shutil.ignore_patterns(".DS_Store"))
     shutil.copy(ROOT / "LICENSE", res / "app/LICENSE")
     shutil.copy(ROOT / "README.md", DIST / "README.md")
+    sign(app)
     print("만듦:", app)
     return app
 
@@ -144,19 +163,21 @@ def install(app, dest):
     target = dest / app.name
     if target.exists():
         shutil.rmtree(target)
-    shutil.copytree(app, target, symlinks=True)
-    shutil.copy(DIST / "README.md", dest / "README.md")
+    subprocess.run(["ditto", str(app), str(target)], check=True)
+    subprocess.run(["codesign", "--verify", "--strict", str(target)], check=True)
+    if dest.resolve() != Path("/Applications"):
+        shutil.copy(DIST / "README.md", dest / "README.md")
     print("설치:", target)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--install", metavar="DIR", help="만든 앱을 이 폴더에 덮어쓰기")
-    ap.add_argument("--icon", action="store_true", help="icon_1024.png로 AppIcon.icns 다시 만들기")
+    ap.add_argument("--icon", action="store_true", help="build/AppIcon.icon으로 아이콘 파일들 다시 만들기(Xcode 필요)")
     ap.add_argument("--dmg", action="store_true", help="배포용 dist/namudump-<버전>.dmg도 만들기")
     a = ap.parse_args()
     if a.icon:
-        make_icns()
+        make_icons()
     app = build()
     if a.dmg:
         make_dmg(app)

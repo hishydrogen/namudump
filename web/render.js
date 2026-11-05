@@ -522,7 +522,6 @@
         box.setAttribute('data-embed', 'https://www.youtube.com/embed/' + yt[1] + (qs ? '?' + qs : ''));
         box.setAttribute('data-kind', 'YouTube 동영상');
         box.setAttribute('data-link', 'https://www.youtube.com/watch?v=' + yt[1]);
-        box.setAttribute('data-thumb', 'https://i.ytimg.com/vi/' + yt[1] + '/hqdefault.jpg');
       } else if (/google\.com\/maps/.test(src)) {
         const q = /[?&]q=([^&]+)/.exec(src);
         box.setAttribute('data-kind', '지도');
@@ -618,7 +617,7 @@
         if (s) el.setAttribute('data-dark-style', s); else el.removeAttribute(name);
         continue;
       } else if (name.startsWith('data-nd-') || name === 'data-title' || name === 'data-hash' || name === 'data-fn' ||
-        name === 'data-w' || name === 'data-h' || name === 'data-embed' || name === 'data-video' || name === 'data-kind' || name === 'data-link' || name === 'data-thumb' || name === 'data-level') {
+        name === 'data-w' || name === 'data-h' || name === 'data-embed' || name === 'data-video' || name === 'data-kind' || name === 'data-link' || name === 'data-level') {
         keep = true;
       } else if (GLOBAL_ATTRS.has(name)) {
         keep = true;
