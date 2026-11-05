@@ -20,7 +20,7 @@ web/classmap.json  난독화된 글자 크기, 표 정렬 클래스 대응표
 web/app.css        화면 스타일
 web/content.css    문서 본문 스타일
 web/katex/         수식용 KaTeX CSS와 글꼴(MIT)
-build/             앱 묶기(make_app.py), 실행기(launcher.sh), 아이콘과 .dmg 배경 그리기
+build/             앱 묶기(make_app.py), 실행기(launcher.sh), 아이콘(AppIcon.icon), .dmg 배경 그리기
 tools/             덤프 조사 도구(classmap.json 재료 뽑기)
 tests/             서버 API 시험(가짜 덤프 사용)
 docs/              README에 쓰는 그림
@@ -62,13 +62,22 @@ python3 namudump.py "<덤프 경로>" --mode native             # 독립 창(pyw
 ```bash
 python3 build/make_app.py                  # dist/나무덤프.app 만들기
 python3 build/make_app.py --dmg            # 배포용 dist/namudump-<버전>.dmg도 만들기
-python3 build/make_app.py --install DIR    # 만든 앱을 DIR에 덮어쓰기(앱을 먼저 종료)
-python3 build/make_app.py --icon           # build/icon_1024.png로 AppIcon.icns 다시 만들기(Pillow 필요)
-python3 build/make_icon.py                 # 아이콘 원본 build/icon_1024.png 다시 그리기(Pillow 필요)
+python3 build/make_app.py --install /Applications   # 만든 앱을 응용 프로그램 폴더에 덮어쓰기(앱을 먼저 종료)
+python3 build/make_app.py --icon           # build/AppIcon.icon으로 아이콘 파일들 다시 만들기(Xcode 필요)
 "$HOME/Library/Application Support/NamuDump/venv/bin/python3" build/make_dmg_bg.py   # .dmg 배경 다시 그리기(PyObjC 필요)
 ```
 
-- **앱 구조**: `나무덤프.app/Contents/MacOS/NamuDump`는 bash 실행기(`build/launcher.sh`)입니다. 이 실행기가 `Resources/app/namudump.py`를 파이썬으로 실행합니다. 처음 실행할 때는 pywebview를 전용 가상 환경(`~/Library/Application Support/NamuDump/venv`)에 설치하고, 실패하면 브라우저 창으로 엽니다.
+- **앱 구조**: `나무덤프.app/Contents/MacOS/NamuDump`는 bash 실행기(`build/launcher.sh`)입니다. 이 실행기가 `Resources/app/namudump.py`를 파이썬으로 실행합니다. 처음 실행할 때는 pywebview를 전용 가상 환경(`~/Library/Application Support/NamuDump/venv`)에 설치하고, 실패하면 브라우저 창으로 엽니다. 실패하면 `.skip-webview`를 남겨 1시간 동안은 다시 시도하지 않고, 그 뒤에 열면 다시 설치합니다. 인터넷 없이 처음 열었어도 나중에 독립 창을 쓸 수 있게 하기 위해서입니다.
+- **아이콘**
+  - 원본은 Icon Composer 문서 `build/AppIcon.icon`입니다. Xcode 안의 Icon Composer로 열어 고친 뒤 `--icon`을 실행합니다.
+  - 가운데 잎맥을 따라 접힌 잎 하나가 펼친 책처럼 보입니다. 밝은 쪽(`page.svg`)에는 가는 틈 세 줄을 내어 글줄을 나타내고, 어두운 쪽(`shade.svg`)은 통으로 둡니다. 시스템이 다크 모드일 때의 바탕색은 `fill-specializations`로 따로 정합니다. 아이콘을 고칠 때는 다크 모드 렌더링을 꼭 함께 봅니다.
+  - `--icon`은 `Assets.car`(macOS 26 이상의 Liquid Glass 아이콘), `AppIcon.icns`(오래된 macOS, .dmg 볼륨 아이콘), `icon_1024.png`, `web/icon.png`를 만듭니다. 결과물도 저장소에 두므로 아이콘을 고치지 않으면 빌드에 Xcode가 필요 없습니다.
+  - `ictool`은 Icon Composer 안의 것을 씁니다. `xcrun ictool`은 이름만 같은 다른 도구로 연결됩니다.
+  - 실행 중에는 macOS가 이 앱을 파이썬(`org.python.python`)으로 알아서 앱의 아이콘을 자동으로 쓰지 못합니다. 그래서 `namudump.py`가 시작할 때 시스템이 렌더링한 앱 아이콘을 받아 Dock에 넣습니다. 실행 도중 모양(다크 등)을 바꾸면 다음 실행 때 반영됩니다.
+- **서명**
+  - 앱을 만들 때마다 임시(ad-hoc) 서명을 합니다. 직접 빌드해 설치하면 격리 표시가 없어 경고 없이 열립니다. `spctl`은 rejected로 나오지만, 격리 표시가 없으면 이 검사를 하지 않습니다.
+  - 내려받은 .dmg로 설치하면 공증을 받지 않았으므로 여전히 경고가 뜹니다.
+  - 앱 안의 파일이 바뀌면 서명이 깨지므로 실행기가 `PYTHONDONTWRITEBYTECODE=1`로 `__pycache__`를 막습니다.
 - **.dmg**
   - [dmgbuild](https://github.com/dmgbuild/dmgbuild)로 만듭니다. `--dmg`를 처음 쓸 때 `build/.venv`에 자동으로 설치됩니다.
   - 창 크기, 아이콘 자리, 배경 그림의 위치는 `make_app.py`의 `DMG_*` 값 한 곳에서 정하고, 배경 그림(`make_dmg_bg.py`)도 이 값으로 그립니다.

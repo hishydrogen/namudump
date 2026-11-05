@@ -107,6 +107,13 @@ class ServerTest(unittest.TestCase):
         with urllib.request.urlopen(self.base + "/w/" + urllib.parse.quote("나무"), timeout=10) as r:
             self.assertIn(b"render.js", r.read())
 
+    def test_no_external_images(self):
+        # 문서를 열기만 해서는 인터넷에 접속하지 않는다(README의 약속). 외부 그림은 CSP로도 막는다.
+        with urllib.request.urlopen(self.base + "/", timeout=10) as r:
+            csp = r.headers["Content-Security-Policy"]
+        img = next(p for p in csp.split(";") if p.strip().startswith("img-src"))
+        self.assertNotIn("http", img)
+
     def test_clear_history(self):
         self.post("/api/history", {"title": "사과나무"})
         self.post("/api/history", {"clear": True})
