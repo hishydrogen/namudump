@@ -4,9 +4,10 @@
     python3 build/make_app.py                 # dist/나무덤프.app 만들기
     python3 build/make_app.py --install DIR   # 만든 앱을 DIR에 덮어쓰기(예: "나무덤프")
     python3 build/make_app.py --dmg           # 배포용 dist/namudump-<버전>.dmg도 만들기
+    python3 build/make_app.py --debug         # 개발용으로 빠르게 빌드(시험 도구 포함)
     python3 build/make_app.py --icon          # build/AppIcon.icon으로 아이콘 파일들 다시 만들기(Xcode 필요)
 
-앱은 bash 실행기(build/launcher.sh)가 Resources/app/namudump.py를 파이썬으로 실행하는 구조다.
+앱 본체는 Swift 패키지(Package.swift)다. 화면 파일(web/)은 Resources/web으로 들어간다.
 아이콘 원본은 Icon Composer 문서(build/AppIcon.icon)다. 컴파일한 결과도 저장소에 두므로
 아이콘을 고칠 때만 Xcode가 있으면 된다.
 """
@@ -24,10 +25,10 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 APP_NAME = "나무덤프"
-# 버전과 만든 사람은 namudump.py 한 곳에서만 정한다
-_SRC = (ROOT / "namudump.py").read_text("utf-8")
-VERSION = re.search(r'^APP_VERSION = "([^"]+)"', _SRC, re.M).group(1)
-AUTHOR = re.search(r'^APP_AUTHOR = "([^"]+)"', _SRC, re.M).group(1)
+# 버전과 만든 사람은 AppInfo.swift 한 곳에서만 정한다
+_SRC = (ROOT / "Sources/NamuDumpCore/AppInfo.swift").read_text("utf-8")
+VERSION = re.search(r'static let version = "([^"]+)"', _SRC).group(1)
+AUTHOR = re.search(r'static let author = "([^"]+)"', _SRC).group(1)
 ICON_NAME = "AppIcon"
 ICTOOL = "/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool"
 
@@ -62,19 +63,30 @@ def sign(app):
     print("서명함(임시):", app)
 
 
-def build():
+def compile_app(debug, universal):
+    """실행 파일을 빌드하고 그 경로를 돌려준다. 배포판은 인텔 맥에서도 돌도록 두 구조를 함께 만든다."""
+    args = ["swift", "build", "-c", "debug" if debug else "release", "--product", "NamuDump"]
+    if universal:
+        args += ["--arch", "arm64", "--arch", "x86_64"]
+    subprocess.run(args, cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
+    out = subprocess.run(args + ["--show-bin-path"], cwd=ROOT, check=True, capture_output=True, text=True)
+    return Path(out.stdout.strip()) / "NamuDump"
+
+
+def build(debug=False, universal=False):
+    binary = compile_app(debug, universal)
     app = DIST / (APP_NAME + ".app")
     shutil.rmtree(DIST, ignore_errors=True)
     (app / "Contents/MacOS").mkdir(parents=True)
     res = app / "Contents/Resources"
-    (res / "app").mkdir(parents=True)
+    res.mkdir(parents=True)
     shutil.copy(BUILD / "Assets.car", res / "Assets.car")
     shutil.copy(BUILD / "AppIcon.icns", res / "AppIcon.icns")
-    shutil.copy(BUILD / "AppIcon.icns", res / "app/icon.icns")
     plist = {
         "CFBundleName": APP_NAME, "CFBundleDisplayName": APP_NAME, "CFBundleIdentifier": "com.hishydrogen.namudump",
         "CFBundleVersion": VERSION, "CFBundleShortVersionString": VERSION, "CFBundlePackageType": "APPL",
-        "CFBundleExecutable": "NamuDump", "CFBundleIconFile": ICON_NAME, "CFBundleIconName": ICON_NAME, "LSMinimumSystemVersion": "11.0",
+        "CFBundleExecutable": "NamuDump", "CFBundleIconFile": ICON_NAME, "CFBundleIconName": ICON_NAME,
+        "LSMinimumSystemVersion": "26.0", "NSPrincipalClass": "NSApplication",
         "NSHighResolutionCapable": True, "CFBundleDevelopmentRegion": "ko",
         "LSApplicationCategoryType": "public.app-category.reference",
         "NSHumanReadableCopyright": "© 2026 " + AUTHOR,
@@ -82,13 +94,9 @@ def build():
     with open(app / "Contents/Info.plist", "wb") as f:
         plistlib.dump(plist, f)
     (app / "Contents/PkgInfo").write_text("APPL????")
-    exe = app / "Contents/MacOS/NamuDump"
-    shutil.copy(BUILD / "launcher.sh", exe)
-    os.chmod(exe, 0o755)
-    for name in ("namudump.py", "mac_chrome.py"):
-        shutil.copy(ROOT / name, res / "app" / name)
-    shutil.copytree(ROOT / "web", res / "app/web", ignore=shutil.ignore_patterns(".DS_Store"))
-    shutil.copy(ROOT / "LICENSE", res / "app/LICENSE")
+    shutil.copy(binary, app / "Contents/MacOS/NamuDump")
+    shutil.copytree(ROOT / "web", res / "web", ignore=shutil.ignore_patterns(".DS_Store"))
+    shutil.copy(ROOT / "LICENSE", res / "LICENSE")
     shutil.copy(ROOT / "README.md", DIST / "README.md")
     sign(app)
     print("만듦:", app)
@@ -175,10 +183,11 @@ def main():
     ap.add_argument("--install", metavar="DIR", help="만든 앱을 이 폴더에 덮어쓰기")
     ap.add_argument("--icon", action="store_true", help="build/AppIcon.icon으로 아이콘 파일들 다시 만들기(Xcode 필요)")
     ap.add_argument("--dmg", action="store_true", help="배포용 dist/namudump-<버전>.dmg도 만들기")
+    ap.add_argument("--debug", action="store_true", help="개발용으로 빠르게 빌드")
     a = ap.parse_args()
     if a.icon:
         make_icons()
-    app = build()
+    app = build(debug=a.debug, universal=a.dmg)
     if a.dmg:
         make_dmg(app)
     if a.install:
