@@ -11,7 +11,6 @@
   --nd-t-in: .2s;
   --nd-t-out: .16s;
   --nd-t-pop: .14s;
-  --nd-t-swipe: .26s;
   --nd-bg: #f2f4f5;
   --nd-card: #ffffff;
   --nd-text: #1d2327;
@@ -31,7 +30,7 @@
   --nd-shadow: 0 1px 2px rgba(16, 24, 32, .05), 0 6px 24px rgba(16, 24, 32, .06);
   --nd-shadow-lg: 0 12px 48px rgba(16, 24, 32, .18);
   --nd-radius: 16px;
-  --nd-top-h: 60px;
+  --nd-top-h: 0px;  /* 웹 뷰가 도구 막대 아래부터 시작한다(obscuredContentInsets) */
   --nd-sbar: rgba(0, 0, 0, .42); --nd-sbar-on: rgba(0, 0, 0, .55);
   color-scheme: light;
 }
@@ -60,7 +59,7 @@
 
 * { box-sizing: border-box; }
 /* 스크롤 위치 자동 보정(scroll anchoring)은 끈다. 읽던 자리 되살리기에서 앱이 직접 위치를 맞춘다 */
-html { scroll-padding-top: calc(var(--nd-top-h) + 16px); -webkit-text-size-adjust: 100%; overflow-anchor: none; }
+html { overscroll-behavior-x: none; scroll-padding-top: calc(var(--nd-top-h) + 16px); -webkit-text-size-adjust: 100%; overflow-anchor: none; }
 body { overflow-anchor: none; }
 /* 쓸기 도중 문서를 옆으로 밀어도 가로 스크롤이 생기지 않게 한다 */
 html { overflow-x: hidden; }
@@ -89,51 +88,8 @@ kbd { font-family: var(--nd-font); }
 .nd-ib.nd-sm svg { width: 17px; height: 17px; }
 .nd-ib.on { color: #f5b301; }
 
-/* ── 상단 막대 ─────────────────────────────────────────── */
-/* sticky로 두면 WebKit이 이 안의 검색창에 글자를 넣거나 지울 때 커서 위치를 잘못 잡아
-   문서를 조금씩 위로 굴린다. 창에 고정하고 그만큼 body를 내린다. */
-.nd-topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: var(--nd-top-h);
-  background: var(--nd-glass); border-bottom: 1px solid var(--nd-glass-line);
-  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
-}
-.nd-topbar-in {
-  height: 100%; max-width: 1480px; margin: 0 auto; padding: 0 16px;
-  display: flex; align-items: center; gap: 10px;
-}
-.nd-navbtns { display: flex; gap: 2px; }
-/* 맥 독립 창: 제목 표시줄을 숨기고 신호등 단추 자리를 비운다 */
-.nd-mac .nd-topbar { padding-left: 78px; -webkit-user-select: none; user-select: none; cursor: default; }
-.nd-mac.nd-fullscreen .nd-topbar { padding-left: 0; }
-.nd-mac .nd-topbar input { -webkit-user-select: text; user-select: text; }
-.nd-brand-slot { width: 290px; flex: none; min-width: 0; margin-right: 6px; display: flex; align-items: center; }
-.nd-brand { position: relative; display: inline-flex; align-items: center; gap: 9px; color: var(--nd-text); font-weight: 700; white-space: nowrap; padding: 5px 8px 5px 5px; margin-left: -5px; border-radius: 10px; }
-.nd-brand:hover { background: var(--nd-hover); }
-.nd-brand-t, .nd-brand-doc { transition: opacity var(--nd-t-in) var(--nd-ease), transform var(--nd-t-in) var(--nd-ease); }
-.nd-brand-doc {
-  position: absolute; left: 5px; width: 240px; top: 50%; transform: translateY(-30%); opacity: 0; pointer-events: none;
-  font-size: 15px; font-weight: 700; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.nd-topbar.show-doc .nd-brand-t { position: absolute; left: 5px; opacity: 0; transform: translateY(-30%); pointer-events: none; }
-.nd-topbar.show-doc .nd-brand-doc { position: static; display: block; max-width: 240px; width: auto; opacity: 1; transform: none; pointer-events: auto; }
-@media (max-width: 980px) { .nd-brand-slot { width: 200px; } .nd-brand-doc, .nd-topbar.show-doc .nd-brand-doc { width: auto; max-width: 150px; } }
-.nd-brand:hover { text-decoration: none; }
-.nd-brand-t { font-size: 16px; letter-spacing: -.01em; }
-.nd-brand-t em { font-style: normal; font-weight: 500; color: var(--nd-muted); margin-left: 6px; font-size: 13px; }
-.nd-search { position: relative; flex: 1; max-width: 560px; margin: 0 auto; }
-.nd-search input {
-  width: 100%; height: 38px; padding: 0 56px 0 38px; border-radius: 11px;
-  border: 1px solid var(--nd-line); background: var(--nd-card); color: var(--nd-text);
-  font: 15px var(--nd-font); outline: none; transition: border-color .15s, box-shadow .15s;
-}
-.nd-search input::-webkit-search-cancel-button { display: none; }
-.nd-search input:focus { border-color: var(--nd-accent); box-shadow: 0 0 0 4px var(--nd-accent-soft); }
-.nd-search-ic { position: absolute; left: 11px; top: 9px; width: 20px; height: 20px; color: var(--nd-faint); pointer-events: none; }
-.nd-search-ic svg { width: 20px; height: 20px; }
-.nd-kbd { position: absolute; right: 9px; top: 8px; font-size: 12px; color: var(--nd-faint); border: 1px solid var(--nd-line); border-radius: 6px; padding: 1px 6px; pointer-events: none; }
-.nd-search input:focus ~ .nd-kbd { display: none; }
-.nd-actions { display: flex; gap: 2px; }
-.nd-progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--nd-accent); opacity: 0; transition: width .3s ease, opacity .3s; }
+/* 진행 막대: 도구 막대 바로 아래 */
+.nd-progress { position: fixed; z-index: 60; left: 0; top: var(--nd-top-h); height: 2px; width: 0; background: var(--nd-accent); opacity: 0; transition: width .3s ease, opacity .3s; }
 .nd-progress.run { opacity: 1; }
 
 /* 검색 제안 */
@@ -158,20 +114,6 @@ kbd { font-family: var(--nd-font); }
 .nd-main { padding: 24px 16px 80px; }
 .nd-layout { max-width: calc(var(--nd-maxw) + 280px); margin: 0 auto; display: flex; gap: 24px; align-items: flex-start; justify-content: center; }
 .nd-page { flex: 1; min-width: 0; max-width: var(--nd-maxw); }
-.nd-side { width: 250px; flex: none; position: sticky; top: calc(var(--nd-top-h) + 20px); max-height: calc(100vh - var(--nd-top-h) - 40px); overflow: auto; overscroll-behavior: contain; }
-.nd-side-in { padding: 4px 0 20px; }
-.nd-side-h { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--nd-faint); padding: 0 12px 8px; }
-.nd-side-toc a {
-  display: block; padding: 4px 12px; border-left: 2px solid var(--nd-line); color: var(--nd-muted);
-  font-size: 13.5px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis;
-}
-.nd-side-toc a:hover { color: var(--nd-text); text-decoration: none; background: var(--nd-hover); }
-.nd-side-toc a.act { color: var(--nd-accent-2); border-left-color: var(--nd-accent); font-weight: 600; }
-.nd-side-toc a .n { color: var(--nd-faint); margin-right: 6px; font-variant-numeric: tabular-nums; }
-.nd-side-toc a.l3 { padding-left: 24px; }
-.nd-side-toc a.l4 { padding-left: 36px; }
-.nd-side-toc a.l5, .nd-side-toc a.l6 { padding-left: 48px; }
-@media (max-width: 1180px) { .nd-side { display: none; } }
 
 .nd-card { background: var(--nd-card); border-radius: var(--nd-radius); box-shadow: var(--nd-shadow); }
 .nd-article { padding: 34px 44px 40px; }
@@ -272,98 +214,12 @@ kbd { font-family: var(--nd-font); }
 @keyframes ndspin { to { transform: rotate(360deg); } }
 .nd-missing-page .big { font-size: 15px; color: var(--nd-muted); margin: 6px 0 18px; }
 
-/* ── 서랍(기록, 즐겨찾기) ─────────────────────────────── */
-.nd-scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .25); z-index: 80; animation: ndfade var(--nd-t-in) var(--nd-ease); }
-.nd-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 92vw); z-index: 90;
-  background: var(--nd-card); box-shadow: var(--nd-shadow-lg); display: flex; flex-direction: column;
-  animation: ndslide var(--nd-t-in) var(--nd-ease);
-}
-@keyframes ndslide { from { transform: translateX(30px); opacity: 0; } }
 @keyframes ndfade { from { opacity: 0; } }
-/* 쓸어서 뒤로, 앞으로: 상단 막대 아래 문서 영역만 움직인다 */
-.nd-main.nd-swiping { position: relative; background: var(--nd-bg); min-height: calc(100vh - var(--nd-top-h)); will-change: transform; }
-.nd-main.nd-swiping.on-top { z-index: 2; box-shadow: -18px 0 40px rgba(0, 0, 0, .16); }
-.nd-main.nd-swiping.below { z-index: 0; }
-.nd-swipe-view { position: fixed; inset: 0; padding-top: var(--nd-top-h); overflow: hidden; background: var(--nd-bg); pointer-events: none; will-change: transform; }
-.nd-swipe-view.under { z-index: 1; }
-.nd-swipe-view.over { z-index: 3; box-shadow: -18px 0 40px rgba(0, 0, 0, .16); }
-.nd-swipe-shade { position: absolute; inset: 0; background: #000; opacity: var(--shade, 0); }
-.nd-swipe-view.anim .nd-swipe-shade { transition: opacity var(--nd-t-swipe) var(--nd-ease); }
-/* 서랍 닫기, 탭 전환 */
-.nd-drawer.closing { animation: ndslideout var(--nd-t-out) var(--nd-ease-in) forwards; pointer-events: none; }
-.nd-scrim.closing { animation: ndfadeout var(--nd-t-out) var(--nd-ease-in) forwards; pointer-events: none; }
-@keyframes ndslideout { to { transform: translateX(30px); opacity: 0; } }
-@keyframes ndfadeout { to { opacity: 0; } }
-#nd-drawer-tabs { position: relative; }
-#nd-drawer-tabs::before {
-  content: ""; position: absolute; top: 3px; bottom: 3px; left: 0; width: var(--pill-w, 0); transform: translateX(var(--pill-x, 0));
-  background: var(--nd-card); border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
-  transition: transform var(--nd-t-in) var(--nd-ease), width var(--nd-t-in) var(--nd-ease);
-}
-#nd-drawer-tabs.no-anim::before { transition: none; }
-#nd-drawer-tabs button { position: relative; transition: color var(--nd-t-in) var(--nd-ease); }
-#nd-drawer-tabs button.on { background: transparent; box-shadow: none; }
-.nd-drawer-list.from-right { animation: ndlistr var(--nd-t-in) var(--nd-ease); }
-.nd-drawer-list.from-left { animation: ndlistl var(--nd-t-in) var(--nd-ease); }
-@keyframes ndlistr { from { transform: translateX(18px); opacity: 0; } }
-@keyframes ndlistl { from { transform: translateX(-18px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .nd-drawer, .nd-scrim, .nd-drawer.closing, .nd-scrim.closing, .nd-drawer-list.from-right, .nd-drawer-list.from-left,
-  .nd-modal, .nd-modal-card, .nd-modal.closing, .nd-modal.closing .nd-modal-card { animation: none; }
-  #nd-drawer-tabs::before { transition: none; }
   .nd-find, .nd-pop, .nd-toast, .nd-sugg { animation: none; }
 }
-.nd-drawer-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px 16px; border-bottom: 1px solid var(--nd-line); }
-.nd-drawer-b { flex: 1; overflow: auto; overscroll-behavior: contain; padding: 8px; }
-.nd-modal-sc, .nd-sugg, .nd-side { overscroll-behavior: contain; }
-.nd-scrim { background: rgba(0, 0, 0, .18); }
-.nd-li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 9px; }
-.nd-li:hover { background: var(--nd-hover); }
-.nd-li a { flex: 1; min-width: 0; color: var(--nd-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; }
-.nd-li small { color: var(--nd-faint); font-size: 12px; white-space: nowrap; }
-.nd-li .nd-ib { opacity: 0; }
-.nd-li:hover .nd-ib { opacity: 1; }
-.nd-drawer-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--nd-line); background: var(--nd-card); }
-.nd-drawer-foot .nd-btn.armed { color: var(--nd-missing); border-color: var(--nd-missing); }
-.nd-drawer-foot .cnt { font-size: 13px; color: var(--nd-faint); }
-.nd-daysep { font-size: 12px; font-weight: 700; color: var(--nd-faint); padding: 12px 10px 4px; }
-
-.nd-seg { display: inline-flex; background: var(--nd-bg); border-radius: 10px; padding: 3px; gap: 2px; }
-.nd-seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px; color: var(--nd-muted); }
-.nd-seg button.on { background: var(--nd-card); color: var(--nd-text); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); font-weight: 600; }
-
-/* ── 설정 창 ───────────────────────────────────────────── */
-.nd-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(0, 0, 0, .3); padding: 20px; animation: ndfade var(--nd-t-in) var(--nd-ease); }
-.nd-modal-card { width: min(560px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; background: var(--nd-card); border-radius: 18px; box-shadow: var(--nd-shadow-lg); animation: ndpop var(--nd-t-in) var(--nd-ease); }
+.nd-sugg { overscroll-behavior: contain; }
 @keyframes ndpop { from { transform: scale(.97); opacity: 0; } }
-.nd-modal.closing { animation: ndfadeout var(--nd-t-out) var(--nd-ease-in) forwards; pointer-events: none; }
-.nd-modal.closing .nd-modal-card { animation: ndpopout var(--nd-t-out) var(--nd-ease-in) forwards; }
-@keyframes ndpopout { to { transform: scale(.97); opacity: 0; } }
-/* 제목은 그대로 두고 아래 내용만 굴린다. 스크롤 막대가 둥근 모서리에 걸리지 않게 스크롤 상자를 아래 모서리 위에서 끝낸다 */
-.nd-modal-in { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-.nd-modal-h { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 10px 24px; border-bottom: 1px solid transparent; transition: border-color var(--nd-t-in) var(--nd-ease); }
-.nd-modal-card.scrolled .nd-modal-h { border-bottom-color: var(--nd-line); }
-.nd-modal-sc { flex: 1; min-height: 0; overflow: auto; margin-bottom: 14px; }
-.nd-modal-h h2 { margin: 0; font-size: 19px; }
-.nd-modal-b { padding: 2px 24px 8px; }
-.nd-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--nd-line); }
-.nd-row:last-child { border-bottom: 0; }
-.nd-row .l { font-size: 14.5px; flex: 1 1 auto; min-width: 0; }
-/* 오른쪽 조작(단추, 스위치 등)은 줄지 않고 글자도 줄바꿈하지 않는다. 긴 덤프 경로는 왼쪽 칸 안에서만 줄을 바꾼다 */
-.nd-row > :not(.l) { flex: none; white-space: nowrap; }
-.nd-row .l small { display: block; color: var(--nd-faint); font-size: 12.5px; margin-top: 2px; }
-.nd-row input[type=range] { width: 170px; accent-color: var(--nd-accent); }
-.nd-switch { position: relative; width: 44px; height: 26px; flex: none; }
-.nd-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-.nd-switch span { position: absolute; inset: 0; background: var(--nd-line-2); border-radius: 999px; cursor: pointer; transition: background .2s; }
-.nd-switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .2s; }
-.nd-switch input:checked + span { background: var(--nd-accent); }
-.nd-switch input:checked + span::after { transform: translateX(18px); }
-.nd-kv { font-size: 13px; color: var(--nd-muted); line-height: 1.8; }
-.nd-about-kv b { color: var(--nd-text); font-weight: 650; }
-.nd-kv code { display: inline-block; font-family: var(--nd-mono); font-size: 12px; line-height: 1.5; word-break: break-all; }
-.nd-sub-h { font-size: 12px; font-weight: 700; color: var(--nd-faint); letter-spacing: .05em; margin: 18px 0 2px; }
 
 /* ── 찾기 막대 ─────────────────────────────────────────── */
 .nd-find {
@@ -409,10 +265,3 @@ mark.nd-hit.cur { background: #ffa23a; box-shadow: 0 0 0 2px #ffa23a; }
 .nd-sugg-foot svg { width: 15px; height: 15px; flex: none; }
 input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 
-/* 문서 스크롤 막대: WebKit 막대는 상단 막대 뒤까지 그려져서 숨기고 app.js가 상단 막대 아래부터 직접 그린다 */
-html { scrollbar-width: none; }
-html::-webkit-scrollbar { display: none; }
-.nd-sbar { position: fixed; top: var(--nd-top-h); right: 0; bottom: 0; width: 16px; z-index: 45; opacity: 0; pointer-events: none; transition: opacity .35s var(--nd-ease); }
-.nd-sbar.on { opacity: 1; pointer-events: auto; transition-duration: .1s; }
-.nd-sbar-thumb { position: absolute; top: 0; right: 3px; width: 7px; border-radius: 4px; background: var(--nd-sbar); transition: width .12s var(--nd-ease), background-color .12s var(--nd-ease); }
-.nd-sbar:hover .nd-sbar-thumb, .nd-sbar.drag .nd-sbar-thumb { width: 10px; border-radius: 5px; background: var(--nd-sbar-on); }

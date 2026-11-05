@@ -7,3 +7,4 @@ __pycache__/
 *.log
 /나무덤프/
 build/.venv/
+.build/
