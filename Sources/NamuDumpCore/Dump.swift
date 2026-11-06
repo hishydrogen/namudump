@@ -13,7 +13,7 @@ public struct DumpDocument {
     public let lastModified: String?
 }
 
-/// 덤프 파일을 읽기 전용으로 연다. 파일이 70GB가 넘으므로 전체를 훑는 일은 피한다.
+/// 덤프 파일을 읽기 전용으로 연다.
 public final class Dump: @unchecked Sendable {
     private static let namespaces = ["분류:", "틀:", "파일:", "나무위키:", "사용자:", "휴지통:", "특수기능:", "위키운영:", "더미:", "파일휴지통:"]
 
@@ -52,7 +52,7 @@ public final class Dump: @unchecked Sendable {
                 throw DumpError("SQLite 파일이 아니거나 손상되었습니다: \(error)")
             }
             guard columns.contains("title"), columns.contains("html") else {
-                throw DumpError("나무위키 덤프 형식(docs 테이블의 title, html 컬럼)이 아닙니다.")
+                throw DumpError("지원하지 않는 파일 형식입니다.")
             }
             try? db.query("SELECT k, v FROM meta") { row in
                 if let key = row.string(0) { self.meta[key] = row.string(1) ?? "" }
