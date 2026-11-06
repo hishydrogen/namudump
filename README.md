@@ -18,11 +18,11 @@
 - **화면 설정**: 시스템, 라이트, 다크 모드(다크에서는 나무위키의 다크 모드 색 사용), 글자 크기, 본문 너비
 - **사이드바**: 목차, 최근 본 문서, 즐겨찾기. 방문 기록은 설정에서 끌 수 있습니다.
 - **없는 문서 표시**: 덤프에 없는 문서로 가는 링크는 빨갛게 표시하고, 누르면 비슷한 제목을 제안합니다.
-- **맥 네이티브 앱**: Liquid Glass 도구 막대와 사이드바(목차, 최근 본 문서, 즐겨찾기), 트랙패드로 쓸어서 뒤로, 앞으로 가기, 마우스 옆 단추
+- **맥 네이티브 앱**: 도구 막대와 사이드바(목차, 최근 본 문서, 즐겨찾기, macOS 26 이상에서는 Liquid Glass 적용), 트랙패드로 쓸어서 뒤로, 앞으로 가기, 마우스 옆 단추
 
 ## 준비물
 
-- **macOS 26 이상**
+- **macOS 14(Sonoma) 이상**
 
 ## 설치
 
@@ -90,3 +90,5 @@ xattr -dr com.apple.quarantine /Applications/나무덤프.app
 ## 개발
 
 코드 구조, 실행과 시험, 빌드와 배포 방법은 [DEVELOPMENT.md](DEVELOPMENT.md)에 있습니다. 바뀐 점은 [CHANGELOG.md](CHANGELOG.md)에 적습니다.
+
+- **기여자**: [@hishydrogen](https://github.com/hishydrogen), Claude, Gemini

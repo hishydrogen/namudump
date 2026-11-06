@@ -86,7 +86,7 @@ def build(debug=False, universal=False):
         "CFBundleName": APP_NAME, "CFBundleDisplayName": APP_NAME, "CFBundleIdentifier": "com.hishydrogen.namudump",
         "CFBundleVersion": VERSION, "CFBundleShortVersionString": VERSION, "CFBundlePackageType": "APPL",
         "CFBundleExecutable": "NamuDump", "CFBundleIconFile": ICON_NAME, "CFBundleIconName": ICON_NAME,
-        "LSMinimumSystemVersion": "26.0", "NSPrincipalClass": "NSApplication",
+        "LSMinimumSystemVersion": "14.0", "NSPrincipalClass": "NSApplication",
         "NSHighResolutionCapable": True, "CFBundleDevelopmentRegion": "ko",
         "LSApplicationCategoryType": "public.app-category.reference",
         "NSHumanReadableCopyright": "© 2026 " + AUTHOR,

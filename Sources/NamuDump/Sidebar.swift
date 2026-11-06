@@ -157,9 +157,15 @@ private struct HistoryList: View {
             }
             .listStyle(.sidebar)
             .safeAreaInset(edge: .bottom) {
-                Button("기록 지우기", systemImage: "trash") { confirming = true }
-                    .buttonStyle(.glass)
-                    .padding(.bottom, 10)
+                if #available(macOS 26.0, *) {
+                    Button("기록 지우기", systemImage: "trash") { confirming = true }
+                        .buttonStyle(.glass)
+                        .padding(.bottom, 10)
+                } else {
+                    Button("기록 지우기", systemImage: "trash") { confirming = true }
+                        .buttonStyle(.bordered)
+                        .padding(.bottom, 10)
+                }
             }
             .confirmationDialog("방문 기록을 모두 지울까요?", isPresented: $confirming) {
                 Button("모두 지우기", role: .destructive) { model.clearHistory() }

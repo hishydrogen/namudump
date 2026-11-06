@@ -25,11 +25,28 @@ final class DocumentViewController: NSViewController {
 
     required init?(coder: NSCoder) { fatalError("코드로만 만든다") }
 
-    override func loadView() { view = webView }
+    override func loadView() {
+        if #available(macOS 26.0, *) {
+            view = webView
+        } else {
+            let container = NSView()
+            webView.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(webView)
+            NSLayoutConstraint.activate([
+                webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+                webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            ])
+            view = container
+        }
+    }
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        webView.obscuredContentInsets = NSEdgeInsets(top: view.safeAreaInsets.top, left: 0, bottom: 0, right: 0)
+        if #available(macOS 26.0, *) {
+            webView.obscuredContentInsets = NSEdgeInsets(top: view.safeAreaInsets.top, left: 0, bottom: 0, right: 0)
+        }
     }
 }
 
