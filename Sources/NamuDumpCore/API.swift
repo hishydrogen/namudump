@@ -25,11 +25,7 @@ public final class API: @unchecked Sendable {
 
     public init(store: UserStore) {
         self.store = store
-        var path = store.settings["db_path"] as? String ?? ""
-        if path.isEmpty {
-            let candidate = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/namu-html.sqlite").path
-            if FileManager.default.fileExists(atPath: candidate) { path = candidate }
-        }
+        let path = store.settings["db_path"] as? String ?? ""
         if !path.isEmpty { open(dumpAt: path) }
     }
 

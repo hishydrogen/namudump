@@ -1,9 +1,6 @@
-/* 나무위키 덤프의 HTML을 안전하고 깔끔한 문서 DOM으로 바꾼다.
+/* 문서 HTML을 안전하고 깔끔한 문서 DOM으로 바꾼다.
  *
- * 덤프의 HTML은 나무위키 웹페이지 전체이며, 크롤링 방지용 가짜 요소와
- * 무작위로 바뀌는 클래스 이름이 섞여 있다. 여기서는 클래스 이름 대신
- * 구조를 보고 본문, 문단 제목, 표, 각주, 이미지, 접기를 찾아낸다.
- * DOMParser로 만든 문서는 스크립트가 실행되지 않으며, 최종 결과는
+ * 본문, 문단 제목, 표, 각주, 이미지, 접기 요소를 정리하고,
  * 허용 목록에 있는 태그와 속성만 남긴다.
  */
 (function (global) {
@@ -151,7 +148,7 @@
     raw = String(raw || '').replace(/<a\b[^>]*\bhref="\/jump\/[^"]*"[^>]*>\s*<\/a>/g, '');
     const doc = new DOMParser().parseFromString(raw, 'text/html');
 
-    // 1) 크롤링 방지용 가짜 요소 제거
+    // 1) 빈 요소 제거
     doc.querySelectorAll('div[class]').forEach((el) => {
       if (el.childElementCount === 0 && !hasDV(el) && blankText(el.textContent)) el.remove();
     });
@@ -205,7 +202,7 @@
       e.remove();
     });
 
-    // 7) 빈 껍데기 제거 (가짜 id를 가진 빈 div 등)
+    // 7) 빈 껍데기 제거
     B.querySelectorAll('div').forEach((el) => {
       if (!el.isConnected) return;
       if (el.childElementCount === 0 && blankText(el.textContent) && !el.getAttribute('style')) el.remove();

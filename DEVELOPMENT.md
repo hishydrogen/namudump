@@ -7,7 +7,7 @@
 나무덤프는 두 부분으로 이루어져 있습니다.
 
 1. **앱**(`Sources/`, Swift): AppKit 창과 Liquid Glass 도구 막대, SwiftUI 사이드바와 설정, 덤프 읽기. 덤프는 읽기 전용으로 열고, 설정과 기록을 저장합니다.
-2. **문서 화면**(`web/`): WKWebView 안에서 돌아가는 단일 페이지 앱입니다. 덤프에 든 나무위키 웹페이지 HTML을 정리해 문서로 보여 줍니다. 나무위키 문서는 임의의 CSS, 복잡한 표, 수식이라 웹 엔진으로 그립니다. 빌드 과정이나 외부 라이브러리 없이 순수 HTML, CSS, JS입니다.
+2. **문서 화면**(`web/`): WKWebView 안에서 돌아가는 단일 페이지 앱입니다. 나무위키 문서는 임의의 CSS, 복잡한 표, 수식이라 웹 엔진으로 그립니다. 빌드 과정이나 외부 라이브러리 없이 순수 HTML, CSS, JS입니다.
 
 웹 뷰는 HTTP 서버 대신 `namudump://` 주소로 화면 파일과 `/api/...`를 받습니다(`SchemeHandler`).
 
@@ -16,14 +16,13 @@ Sources/NamuDumpCore/  덤프 읽기, 검색, 설정과 기록, API, 화면 파�
 Sources/NamuDump/      창, 도구 막대, 사이드바, 검색 제안, 설정, 메뉴, 웹 뷰 입력 처리
 web/index.html         화면 뼈대
 web/app.js             라우팅(/, /w/제목, /search), 검색 결과, 각주, 문서 안 찾기, 읽던 자리, window.ND
-web/render.js          덤프 HTML을 깨끗한 문서로 바꾸는 핵심 코드(window.NamuRender.render)
-web/classmap.json      난독화된 글자 크기, 표 정렬 클래스 대응표
+web/render.js          문서 본문 렌더링(window.NamuRender.render)
+web/classmap.json      글자 크기, 표 정렬 클래스 대응표
 web/app.css            화면 스타일
 web/content.css        문서 본문 스타일
 web/katex/             수식용 KaTeX CSS와 글꼴(MIT)
 build/                 앱 묶기(make_app.py), 아이콘(AppIcon.icon), .dmg 배경 그리기
-tools/                 덤프 조사 도구(classmap.json 재료 뽑기)
-tests/                 Core 시험(가짜 덤프 사용)
+tests/                 Core 시험
 docs/                  README에 쓰는 그림
 ```
 
@@ -51,7 +50,7 @@ open dist/나무덤프.app
 - **주석과 문구**: 한국어로 씁니다. 화면에 보이는 문구도 한국어입니다.
 - **버전과 만든 사람**: `Sources/NamuDumpCore/AppInfo.swift` 한 곳에서 정합니다. `build/make_app.py`와 정보 창이 이 값을 가져다 씁니다.
 - **애니메이션**: 시간과 곡선은 `app.css`의 `:root` 변수 한 곳에서 정합니다.
-- **저장소에 넣지 않는 것**: 덤프 파일과 문서 내용(CC BY-NC-SA이고 크기도 큽니다), 빌드 결과(`dist/`, `.build/`), 도구용 가상 환경(`build/.venv/`)
+- **저장소에 넣지 않는 것**: 빌드 결과(`dist/`, `.build/`), 도구용 가상 환경(`build/.venv/`)
 
 ## 빌드와 배포
 
@@ -85,14 +84,14 @@ python3 build/make_app.py --icon           # build/AppIcon.icon으로 아이콘 
   4. `v<버전>` 태그로 GitHub 릴리스를 만들고 .dmg를 첨부합니다. 릴리스 설명에는 `CHANGELOG.md`의 해당 부분을 옮깁니다.
 
   ```bash
-  gh release create v1.0.0 dist/namudump-1.0.0.dmg --title "나무덤프 1.0.0" --notes-file <설명 파일>
+  gh release create v2.0.0 dist/namudump-2.0.0.dmg --title "나무덤프 2.0.0" --notes-file <설명 파일>
   ```
 
 ## 사용자 데이터
 
 - **저장 위치**: `~/Library/Application Support/NamuDump`
-- **저장하는 것**: 설정(`settings.json`), 방문 기록과 즐겨찾기(`user.sqlite`). 1.0이 쓰던 `venv/`, `webview/`, `namudump.log`는 더 쓰지 않습니다.
-- **덤프 위치**: `~/Downloads/namu-html.sqlite`를 먼저 찾고, 없으면 사용자가 고른 경로를 `settings.json`의 `db_path`에 기억합니다.
+- **저장하는 것**: 설정(`settings.json`), 방문 기록과 즐겨찾기(`user.sqlite`).
+- **덤프 위치**: 사용자가 고른 경로를 `settings.json`의 `db_path`에 기억합니다.
 
 ## 앱과 화면 사이
 
@@ -106,49 +105,6 @@ python3 build/make_app.py --icon           # build/AppIcon.icon으로 아이콘 
 - 화면에는 CSP를 겁니다(`StaticFiles`). 화면 파일은 `web/` 밖으로 나갈 수 없습니다. 외부 그림은 CSP로 막습니다.
 - 외부 링크 열기(`open_url`)는 `http`, `https`, `mailto` 주소만 받습니다.
 - **동영상**: `namudump://`에서는 Referer가 보내지지 않아 유튜브가 재생을 거부합니다(오류 153). 그래서 재생을 누르면 `EmbedServer`가 `127.0.0.1`의 빈 포트를 열어 플레이어를 감싸는 페이지만 내줍니다. 알려진 플레이어 주소만 받습니다(`EmbedPage`). 재생을 누르기 전에는 포트를 열지 않습니다.
-
-## 덤프 형식
-
-```
-meta(k TEXT PRIMARY KEY, v TEXT)   -- source, license, attribution, generated_at_iso, doc_count 등
-docs(id INTEGER PRIMARY KEY, title TEXT NOT NULL, md BLOB NOT NULL, html BLOB,
-     md_len, html_len, text_len, categories, images, links, last_modified TEXT, rendered_at INTEGER)
-UNIQUE INDEX ix_title ON docs(title)
-```
-
-- **기본**
-  - 나무덤프가 쓰는 것은 `docs`의 `title`, `html`, `last_modified`와 `meta`입니다. `html`은 zlib로 압축되어 있습니다.
-  - 2026년 8월판 기준 문서는 1,787,556개이고, id는 1부터 빈틈없이 이어집니다.
-  - 파일이 70GB가 넘으므로 반드시 읽기 전용(`file:...?mode=ro&immutable=1`)으로 열고, 전체를 훑는 일은 피합니다.
-  - 처음 화면의 덤프 날짜와 문서 수는 `meta`의 `generated_at_iso`, `doc_count`에서 읽습니다.
-- **검색**
-  - 제목 앞부분 검색은 색인 범위 조회(`title >= q AND title < q || '\U0010ffff'`)로 합니다.
-  - 포함 검색은 제목 전체를 UTF-8 바이트로 메모리에 올려 `memmem`으로 찾습니다. 대소문자는 ASCII만 구분하지 않습니다.
-- **내용의 특징**
-  - 넘겨주기 문서에는 대상 문서 내용이 통째로 복사되어 있습니다.
-  - `html`은 나무위키 웹페이지(Vue 앱) 전체를 렌더링한 결과라, 본문 앞뒤로 사이트 틀, 광고("파워링크"), 라이선스 안내가 붙어 있습니다.
-- **크롤링 방지 장치**
-  - 클래스 이름이 무작위 문자열이고, 수집 시점마다 10가지쯤의 변형이 섞여 있습니다.
-  - `&nbsp;`만 든 가짜 div가 수천 개 들어 있습니다.
-- **그대로 살아 있는 것**: 문서 안 `<style>`(위키 CSS), `data-onclick`(틀의 탭 전환), `data-dark-style`(다크 모드 색), KaTeX의 원래 클래스 이름
-- **이미지**: 이미지 주소(`i.namu.wiki/i/...`)는 기한이 있는 주소라 이미 만료되었습니다. 그래서 이미지 자리에는 원래 크기의 자리 표시와 설명(alt)만 보여 줍니다.
-
-## 문서 정리(render.js)
-
-클래스 이름을 믿지 않고 구조로 판단합니다. 단계는 코드 주석의 번호(1-21)와 같습니다.
-
-- **가짜 요소**: `data-v-*` 속성이 없고 내용이 빈 div는 지웁니다.
-- **본문 찾기**: "이 저작물은"으로 시작하는 라이선스 안내의 바로 앞 형제 블록이 본문입니다.
-- **본문 컴포넌트**: 가장 흔한 `data-v-*` 표식으로 알아봅니다. 광고 블록과, 같은 클래스로 겹겹이 싼 껍데기는 벗겨 냅니다.
-- **요소 알아보기**: 문단 제목은 `a[id^=s-]`, 각주는 `#fn-`과 `#rfn-`, 이미지 크기는 자리 표시 SVG의 치수, 표 정렬과 글자 크기는 `classmap.json`으로 알아봅니다.
-- **허용 목록**
-  - 최종 결과에는 허용 목록에 있는 태그와 속성만 남깁니다. `<script>`, 이벤트 속성, `url()`이 든 스타일은 버립니다.
-  - 원래 클래스는 `nd-*`로 바꾼 것과 위키 CSS용 해시 클래스만 남깁니다.
-  - 위키 CSS는 적용 범위를 문서 본문으로 좁혀서(`scopeCss`) 넣습니다.
-- **링크 안의 링크**: 이미지 안에 빈 `/jump/` 링크가 겹쳐 있으면 HTML 파서가 바깥 링크를 끊어 틀 배치가 깨집니다. 파싱하기 전에 빈 `/jump/` 링크를 지웁니다.
-- **동영상**: `lite-youtube`는 실제 iframe이 `noscript` 안에만 있어서, noscript를 지우기 전에 iframe으로 바꿉니다. 폭이 `%`인 경우를 px로 읽으면 좁아지므로 `boxSize()`에서 따로 다룹니다.
-
-`classmap.json`은 `tools/scan_classes.py`로 덤프 표본 약 6,400개를 여러 번 훑어 만들었습니다. 같은 틀이 여러 변형에 공통으로 나오는 점을 이용해 손으로 맞췄습니다. 글자 크기 단계는 추정이라 드물게 한 칸쯤 다를 수 있습니다.
 
 ## 화면(app.js)
 
@@ -170,14 +126,3 @@ UNIQUE INDEX ix_title ON docs(title)
 - **한글 입력기와 클릭**: 웹 입력창에 초점이 있으면 한글 입력기가 다른 곳의 첫 클릭을 먹습니다. mouseDown과 mouseUp 동안 `inputContext`를 nil로 돌려 클릭을 웹으로 바로 보냅니다. 조합 중인 글자는 먼저 확정합니다.
 - **마우스 옆 단추**: WebKit이 3번, 4번 단추를 가운데 단추로 뭉뚱그려서 `otherMouseUp`에서 직접 `history.back()`, `forward()`를 부릅니다.
 - **WKURLSchemeTask**: 웹 뷰가 취소한 요청에 답하면 예외가 나므로 `stop`을 받은 작업은 기억해 두고 답하지 않습니다.
-
-## 넣지 않기로 한 것
-
-같은 시행착오를 반복하지 않도록, 해 보고 버린 것과 이유를 적어 둡니다.
-
-- **이미지 불러오기 시도**: 덤프의 이미지 주소가 만료되어 거의 동작하지 않아 기능을 뺐습니다.
-- **확대, 축소(핀치, 스마트 줌)**: 문서 영역만 돋보기처럼 키우는 기능을 여러 방식으로 만들었다가 뺐습니다.
-  - CSS `zoom`: 매번 전체를 다시 배치해 버벅였습니다. 글자를 새 크기로 다시 그리며 줄바꿈이 달라져 위치가 어긋났고, WebKit은 zoom 안쪽 요소의 위치를 배율로 나눈 값으로 돌려줍니다.
-  - `transform: scale`: 흐리거나(그림층일 때), 확대 중 스크롤이 버벅였습니다. WebKit은 한 방향으로만 스크롤하고 이를 끄는 설정이 없어서, 대각선은 웹이 직접 굴려야 했습니다.
-  - WebKit 자체 확대: 상단 막대까지 함께 커집니다.
-- **파이썬과 pywebview**: 1.0의 구조입니다. 실행 중 macOS가 앱을 Python.app으로 알아서 Dock 아이콘과 이름이 네이티브가 될 수 없고, 사용자에게 파이썬이 필요했으며, pywebview 내부를 런타임에 바꿔 끼워야 했습니다. 2.0에서 Swift로 옮겼습니다. 1.0의 직접 구현(쓸기, 튕기기, 스크롤 막대)은 git 기록(`c5b2bde`)에 있습니다. 당시 WebKit 자체 쓸기는 스냅샷이 몇 초씩 남는 문제가 있었으니, 2.0에서 같은 증상이 나오면 그 코드를 참고합니다.

@@ -30,15 +30,14 @@ final class APITests: XCTestCase {
         defer { sqlite3_close(db) }
         sqlite3_exec(db, """
             CREATE TABLE meta(k TEXT PRIMARY KEY, v TEXT);
-            CREATE TABLE docs(id INTEGER PRIMARY KEY, title TEXT NOT NULL, md BLOB NOT NULL, html BLOB,
-              md_len, html_len, text_len, categories, images, links, last_modified TEXT, rendered_at INTEGER);
+            CREATE TABLE docs(id INTEGER PRIMARY KEY, title TEXT NOT NULL, html BLOB, last_modified TEXT);
             CREATE UNIQUE INDEX ix_title ON docs(title);
-            INSERT INTO meta VALUES ('doc_count', '\(APITests.docs.count)'), ('source', 'test');
+            INSERT INTO meta VALUES ('doc_count', '\(APITests.docs.count)');
             """, nil, nil, nil)
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         for (i, doc) in APITests.docs.enumerated() {
             var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, "INSERT INTO docs(id, title, md, html, last_modified) VALUES (?, ?, x'00', ?, '2026-08-01')", -1, &stmt, nil)
+            sqlite3_prepare_v2(db, "INSERT INTO docs(id, title, html, last_modified) VALUES (?, ?, ?, '2026-01-01')", -1, &stmt, nil)
             let blob = try APITests.zlib(doc.1)
             sqlite3_bind_int(stmt, 1, Int32(i + 1))
             sqlite3_bind_text(stmt, 2, doc.0, -1, transient)
@@ -80,7 +79,7 @@ final class APITests: XCTestCase {
     func testDocument() throws {
         let d = try get("doc", ["title": "나무위키"]) as! [String: Any]
         XCTAssertTrue((d["html"] as? String)?.contains("나무위키 문서") == true)
-        XCTAssertEqual(d["last_modified"] as? String, "2026-08-01")
+        XCTAssertEqual(d["last_modified"] as? String, "2026-01-01")
     }
 
     func testDocumentResolvesCase() throws {

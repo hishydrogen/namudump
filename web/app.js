@@ -269,7 +269,7 @@
         </div>
         <div class="nd-about">
           이 화면의 문서는 나무위키 기여자들이 작성한 것으로, <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a>에 따라 이용할 수 있습니다.<br>
-          원본 덤프는 읽기 전용으로 엽니다. 덤프에는 이미지 파일이 없어서 이미지 자리에는 설명만 표시합니다.
+          원본 파일은 읽기 전용으로 엽니다. 이미지 자리에는 설명만 표시합니다.
         </div>
       </div>`, { side: false });
     const bq = $('#nd-bigq');
@@ -489,7 +489,6 @@
   }
 
   // 이미지
-  // 덤프에는 이미지 파일이 없고 원래 주소도 만료되어서, 늘 자리 표시만 보여 준다.
   function setupImages(root) {
     root.querySelectorAll('img[data-nd-src]').forEach(showPlaceholder);
   }
