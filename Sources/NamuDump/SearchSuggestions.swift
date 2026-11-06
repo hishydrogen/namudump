@@ -42,6 +42,7 @@ private final class FirstClickHostingView<Content: View>: NSHostingView<Content>
 /// 도구 막대 검색창의 제안 목록. 유리 패널에 띄운다. 입력은 검색창이 계속 받는다.
 final class SearchController: NSObject, NSSearchFieldDelegate {
     private let model = SuggestionModel()
+    private lazy var hosting = FirstClickHostingView(rootView: SuggestionList(model: model))
     private lazy var panel = makePanel()
     private var sequence = 0
     private var pending: DispatchWorkItem?
@@ -64,17 +65,36 @@ final class SearchController: NSObject, NSSearchFieldDelegate {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.hidesOnDeactivate = true
-        let glass = NSGlassEffectView()
-        glass.cornerRadius = 16
-        glass.contentView = FirstClickHostingView(rootView: SuggestionList(model: model))
-        panel.contentView = glass
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = 16
+            glass.contentView = hosting
+            panel.contentView = glass
+        } else {
+            let effect = NSVisualEffectView()
+            effect.material = .popover
+            effect.blendingMode = .behindWindow
+            effect.state = .active
+            effect.wantsLayer = true
+            effect.layer?.cornerRadius = 12
+            effect.layer?.masksToBounds = true
+            hosting.translatesAutoresizingMaskIntoConstraints = false
+            effect.addSubview(hosting)
+            NSLayoutConstraint.activate([
+                hosting.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
+                hosting.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+                hosting.topAnchor.constraint(equalTo: effect.topAnchor),
+                hosting.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
+            ])
+            panel.contentView = effect
+        }
         return panel
     }
 
     private func place() {
-        guard let field, let window = field.window, let content = panel.contentView else { return }
-        content.layoutSubtreeIfNeeded()
-        let size = (content as? NSGlassEffectView)?.contentView?.fittingSize ?? content.fittingSize
+        guard let field, let window = field.window else { return }
+        hosting.layoutSubtreeIfNeeded()
+        let size = hosting.fittingSize
         let anchor = window.convertToScreen(field.convert(field.bounds, to: nil))
         panel.setFrame(NSRect(x: anchor.maxX - size.width, y: anchor.minY - size.height - 8, width: size.width, height: size.height), display: true)
         if panel.parent == nil { window.addChildWindow(panel, ordered: .above) }

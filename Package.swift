@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "NamuDump",
-    platforms: [.macOS("26.0")],
+    platforms: [.macOS("14.0")],
     products: [
         .library(name: "NamuDumpCore", targets: ["NamuDumpCore"]),
         .executable(name: "NamuDump", targets: ["NamuDump"]),

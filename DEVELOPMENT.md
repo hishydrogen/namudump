@@ -117,7 +117,7 @@ python3 build/make_app.py --icon           # build/AppIcon.icon으로 아이콘 
 
 ## 앱 창
 
-- **Liquid Glass**: `NSSplitViewController`와 `NSToolbar`, SwiftUI 사이드바와 설정은 시스템이 유리로 그립니다. 웹 뷰는 도구 막대 뒤까지 뻗고 `obscuredContentInsets`로 내용만 그 아래에서 시작해서, 문서가 유리 아래로 비쳐 지나갑니다. 그래서 CSS의 `--nd-top-h`는 0입니다.
+- **Liquid Glass와 하위 호환(macOS 14 이상)**: macOS 26 이상에서는 `NSSplitViewController`와 `NSToolbar`, SwiftUI 사이드바와 설정은 시스템이 유리로 그립니다. 웹 뷰는 도구 막대 뒤까지 뻗고 `obscuredContentInsets`로 내용만 그 아래에서 시작해서, 문서가 유리 아래로 비쳐 지나갑니다. macOS 14–15에서는 웹 뷰가 `safeAreaLayoutGuide.topAnchor` 아래에서 시작하고 검색 제안 패널에 `NSVisualEffectView`를 씁니다.
 - **쓸기, 튕기기, 스크롤 막대**: 모두 WebKit 기본 동작입니다(`allowsBackForwardNavigationGestures`). 1.0은 고정된 웹 상단 막대 때문에 직접 구현했지만 상단 막대가 네이티브가 되면서 필요 없어졌습니다. 뒤로, 앞으로 단추의 상태도 `canGoBack`, `canGoForward`를 관찰합니다.
 - **일반 마우스 휠**: 정밀 입력이 아닌 휠만 `scrollWheel(with:)`에서 가로채 웹의 `ND_wheel`로 넘기고, 웹이 220ms 동안 미끄러지듯 굴립니다(한 칸 40px).
 - **검색 제안**: `NSPopover`는 뜨는 순간 키 입력을 가져가 검색창 편집이 끝나 버립니다. 그래서 키 창이 되지 않는 패널(`SuggestionPanel`)에 `NSGlassEffectView`를 넣어 띄웁니다.
