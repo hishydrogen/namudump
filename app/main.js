@@ -1,6 +1,7 @@
 'use strict';
 // 나무덤프 Electron 메인 프로세스: 창, 메뉴, namudump:// 주소, 운영체제 기능.
 const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, protocol, session, shell } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const pkg = require('../package.json');
@@ -264,6 +265,33 @@ ipcMain.handle('nd', async (e, ep, body) => {
   return { ok: false };
 });
 
+// ── 리눅스: 보안 격리 없이 실행될 때 알리기 ─────────────────
+// AppImage는 chrome-sandbox에 root 권한(SUID)을 줄 수 없어 사용자 네임스페이스로 격리한다.
+// Ubuntu 24.04 이후처럼 이것이 막힌 시스템에서는 AppRun이 알리지 않고 --no-sandbox를 붙여 실행한다.
+// 문서 속 YouTube 등 외부 웹 콘텐츠도 격리 없이 돌게 되므로, 알리고 계속할지 고르게 한다.
+const NO_SANDBOX_OK = path.join(SUPPORT, 'no-sandbox-ok');    // '다음부터 묻지 않기'(초기화하면 지운다, store.js)
+async function confirmNoSandbox() {
+  if (process.platform !== 'linux' || !app.commandLine.hasSwitch('no-sandbox')) return true;
+  if (fs.existsSync(NO_SANDBOX_OK)) return true;
+  let apparmor = false;
+  try { apparmor = fs.readFileSync('/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'utf8').trim() === '1'; } catch (e) { /* 없는 시스템 */ }
+  let detail = '이 시스템에서는 Chromium 보안 격리(샌드박스)를 쓸 수 없어 격리 없이 실행됩니다. ' +
+    '덤프 문서는 컴퓨터 안에서 읽지만, 문서 속 YouTube 동영상 등 인터넷에서 불러오는 콘텐츠도 격리 없이 실행됩니다.';
+  if (apparmor) {
+    detail += '\n\n원인: Ubuntu 24.04 이후의 AppArmor가 일반 사용자의 사용자 네임스페이스 사용을 막고 있습니다. ' +
+      '아래 명령으로 허용할 수 있습니다. 시스템 전체에 적용되며, 재부팅하면 원래대로 돌아갑니다.\n\n' +
+      'sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0';
+  }
+  const r = await dialog.showMessageBox({
+    type: 'warning', title: APP_NAME, message: '보안 격리 없이 실행 중입니다', detail,
+    buttons: ['계속 실행', '종료'], defaultId: 0, cancelId: 1, noLink: true,
+    checkboxLabel: '다음부터 묻지 않기',
+  });
+  if (r.response === 1) return false;
+  if (r.checkboxChecked) { try { fs.mkdirSync(SUPPORT, { recursive: true }); fs.writeFileSync(NO_SANDBOX_OK, ''); } catch (e) { /* 무시 */ } }
+  return true;
+}
+
 // ── 메뉴 ────────────────────────────────────────────────
 function sendCommand(cmd) {
   const win = BrowserWindow.getFocusedWindow();
@@ -331,7 +359,8 @@ app.on('second-instance', () => {
   if (win) { if (win.isMinimized()) win.restore(); win.focus(); } else createWindow('/');
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (!(await confirmNoSandbox())) { app.quit(); return; }
   app.setAboutPanelOptions({
     applicationName: APP_NAME, applicationVersion: pkg.version, version: '',
     copyright: INFO.copyright, website: pkg.homepage,

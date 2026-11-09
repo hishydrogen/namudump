@@ -79,6 +79,8 @@ class UserStore {
   reset() {
     this.db.exec('DELETE FROM bookmarks; DELETE FROM history;');
     this.settings = { ...DEFAULT_SETTINGS };
+    // 리눅스 보안 격리 경고의 '다음부터 묻지 않기'도 지운다(main.js)
+    try { fs.rmSync(path.join(this.root, 'no-sandbox-ok'), { force: true }); } catch (e) { /* 무시 */ }
     return this.saveSettings({ auto_find: false });
   }
 }
