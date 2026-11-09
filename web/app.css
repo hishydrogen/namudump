@@ -119,7 +119,7 @@ kbd { font-family: var(--nd-font); }
 .nd-native .nd-topbar input { -webkit-user-select: text; user-select: text; }
 .nd-native .nd-topbar button, .nd-native .nd-topbar a, .nd-native .nd-topbar input, .nd-native .nd-search,
 .nd-native .nd-sugg, .nd-native .nd-scrim, .nd-native .nd-drawer, .nd-native .nd-modal, .nd-native .nd-pop,
-.nd-native .nd-find, .nd-native .nd-toast { -webkit-app-region: no-drag; }
+.nd-native .nd-find, .nd-native .nd-toast, .nd-native .nd-menu { -webkit-app-region: no-drag; }
 .nd-native.nd-fullscreen .nd-topbar { -webkit-app-region: no-drag; }
 /* 맥: 신호등 단추 자리를 비운다 */
 .nd-mac .nd-topbar { padding-left: 78px; }
@@ -446,6 +446,23 @@ kbd { font-family: var(--nd-font); }
 }
 .nd-find input { width: 220px; border: 0; outline: none; background: transparent; color: var(--nd-text); font: 14px var(--nd-font); }
 .nd-find-n { font-size: 12px; color: var(--nd-faint); min-width: 44px; text-align: right; }
+
+/* ── 상단 막대 단추의 작은 팝오버(화면 모드) ───────────── */
+.nd-menu {
+  position: fixed; z-index: 80; min-width: 176px; padding: 6px; transform-origin: top right;
+  background: var(--nd-card); border: 1px solid var(--nd-line); border-radius: 12px; box-shadow: var(--nd-shadow-lg);
+  animation: ndpop var(--nd-t-pop) var(--nd-ease);
+}
+.nd-menu-h { font-size: 11.5px; font-weight: 600; color: var(--nd-faint); padding: 4px 10px 6px; }
+.nd-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: none; color: var(--nd-text); font: 14px var(--nd-font); text-align: left; cursor: pointer;
+}
+.nd-menu button svg { width: 17px; height: 17px; flex: none; color: var(--nd-muted); }
+.nd-menu button span { flex: 1; }
+.nd-menu button:hover, .nd-menu button:focus-visible { background: var(--nd-hover); outline: none; }
+.nd-menu button.on { font-weight: 600; }
+.nd-menu button .ck { width: 15px; height: 15px; color: var(--nd-accent); }
 
 /* ── 각주 말풍선, 알림 ─────────────────────────────────── */
 .nd-pop {

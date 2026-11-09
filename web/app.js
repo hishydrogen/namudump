@@ -82,16 +82,68 @@
     return t === 'system' ? (mq.matches ? 'dark' : 'light') : t;
   }
   const THEME_NAME = { system: '시스템', light: '라이트', dark: '다크' };
+  const THEME_ICON = () => ({ system: I.auto, light: I.sun, dark: I.moon });
+  // 화면 모드 팝오버: 상단 막대 단추 바로 아래에 세 가지 중 하나를 고르게 띄운다
+  const CHECK_SVG = '<svg class="ck" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 5"/></svg>';
+  function renderThemeMenu(m) {
+    const cur = S.settings.theme || 'system', icons = THEME_ICON();
+    m.innerHTML = '<div class="nd-menu-h">화면 모드</div>' + ['system', 'light', 'dark'].map((v) =>
+      `<button type="button" role="menuitemradio" aria-checked="${v === cur}" data-v="${v}"${v === cur ? ' class="on"' : ''}>${icons[v]}<span>${THEME_NAME[v]}</span>${v === cur ? CHECK_SVG : ''}</button>`).join('');
+  }
+  function openThemeMenu(e) {
+    let m = $('#nd-theme-menu');
+    if (m && !m.hidden) { closeThemeMenu(); return; }
+    if (!m) {
+      m = document.createElement('div'); m.id = 'nd-theme-menu'; m.className = 'nd-menu'; m.setAttribute('role', 'menu'); m.hidden = true;
+      document.body.appendChild(m);
+      m.addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-v]');
+        if (!b) return;
+        saveSettings({ theme: b.dataset.v });
+        closeThemeMenu(true);
+      });
+      m.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        e.preventDefault();
+        const bs = $$('button', m), i = bs.indexOf(document.activeElement);
+        bs[(i + (e.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus();
+      });
+    }
+    closePop(); closeSugg();
+    renderThemeMenu(m);
+    const r = $('#nd-theme').getBoundingClientRect();
+    m.style.top = Math.round(r.bottom + 6) + 'px';
+    m.style.right = Math.round(window.innerWidth - r.right) + 'px';
+    m.hidden = false;
+    $('#nd-theme').setAttribute('aria-expanded', 'true');
+    // 키보드로 열었을 때만(클릭 수 0) 지금 항목으로 초점을 옮긴다. 마우스로 열면 아무것도 강조하지 않는다
+    if (e && e.detail === 0) ($('button.on', m) || $('button', m)).focus({ preventScroll: true });
+  }
+  function closeThemeMenu(refocus) {
+    const m = $('#nd-theme-menu');
+    if (!m || m.hidden) return false;
+    m.hidden = true;
+    $('#nd-theme').setAttribute('aria-expanded', 'false');
+    if (refocus) $('#nd-theme').focus({ preventScroll: true });
+    return true;
+  }
+  // 팝오버 밖을 누르거나 창 크기가 바뀌면 닫는다
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('#nd-theme-menu, #nd-theme')) closeThemeMenu();
+  }, true);
+  window.addEventListener('resize', () => closeThemeMenu());
+  window.addEventListener('blur', () => closeThemeMenu());
   function applyTheme() {
     const t = resolvedTheme();
     document.documentElement.dataset.theme = t;
     const mode = S.settings.theme || 'system';
     const tb = document.getElementById('nd-theme');
     if (tb) {
-      tb.innerHTML = mode === 'light' ? I.sun : mode === 'dark' ? I.moon : I.auto;
-      const next = { system: 'light', light: 'dark', dark: 'system' }[mode];
-      tb.title = `화면 모드: ${THEME_NAME[mode]} (누르면 ${THEME_NAME[next]})`;
+      tb.innerHTML = THEME_ICON()[mode];
+      tb.title = `화면 모드: ${THEME_NAME[mode]}`;
     }
+    const menu = document.getElementById('nd-theme-menu');
+    if (menu && !menu.hidden) renderThemeMenu(menu);
     const segEl = document.querySelector('#nd-modal-b [data-set="theme"]');
     if (segEl) segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === mode));
     applyDarkStyles(document.querySelector('.nd-content'));
@@ -1553,6 +1605,7 @@
     const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
     if (e.key === 'Escape') {
       // 처리했다고 알려야(preventDefault) 맥이 경고음을 내지 않는다
+      if (closeThemeMenu(true)) { e.preventDefault(); return; }
       if (!$('#nd-modal').hidden) { e.preventDefault(); closeModal(); return; }
       if (!$('#nd-drawer').hidden) { e.preventDefault(); closeDrawer(); return; }
       if (!$('#nd-find').hidden) { e.preventDefault(); closeFind(); return; }
@@ -1684,11 +1737,9 @@
     $('#nd-star').onclick = toggleBookmark;
     $('#nd-lists').onclick = () => openDrawer();
     $('#nd-settings').onclick = openSettings;
-    $('#nd-theme').onclick = () => {
-      const next = { system: 'light', light: 'dark', dark: 'system' }[S.settings.theme || 'system'];
-      saveSettings({ theme: next });
-      toast('화면 모드: ' + THEME_NAME[next]);
-    };
+    $('#nd-theme').onclick = openThemeMenu;
+    $('#nd-theme').setAttribute('aria-haspopup', 'menu');
+    $('#nd-theme').setAttribute('aria-expanded', 'false');
     $('#nd-totop').onclick = () => quickScrollTo(0);
     $('#nd-scrim').onclick = closeDrawer;
     $('#nd-drawer-close').onclick = closeDrawer;

@@ -67,7 +67,7 @@ npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -arm64.App
 
 - 설정은 `package.json`의 `build`에 있습니다([electron-builder](https://www.electron.build)).
 - Windows, Linux 설치 파일은 맥에서도 만들 수 있습니다. 실행 확인은 해당 운영체제에서 합니다. `.github/workflows/build.yml`은 태그(`v*`)를 올리거나 직접 실행하면 다섯 환경에서 각각 빌드해 결과물을 올립니다(릴리스에 게시하지는 않음).
-- **앱 이름**: 앱 묶음과 실행 파일 이름은 영문 `NamuDump`입니다. Electron 보조 앱(`NamuDump Helper.app`) 이름에 한글이 들어가면 macOS에서 시작하자마자 멈춥니다(SIGTRAP). 맥에서는 `build/mac/InfoPlist.strings`로 파인더, Dock, Spotlight에 '나무덤프'로 보이게 하는데, 이 지역화 이름은 Info.plist의 `CFBundleDisplayName`이 파일 이름(`NamuDump`)과 같을 때만 쓰입니다. Windows는 시작 메뉴와 제거 목록, Linux는 데스크톱 항목 이름이 '나무덤프'입니다.
+- **앱 이름**: 앱 묶음과 실행 파일 이름은 영문 `NamuDump`입니다. Electron 보조 앱(`NamuDump Helper.app`) 이름에 한글이 들어가면 macOS에서 시작하자마자 멈춥니다(SIGTRAP). 맥에서는 `build/mac/InfoPlist.strings`로 파인더, Dock, Spotlight, 메뉴 막대에 '나무덤프'로 보이게 합니다. Info.plist의 `CFBundleName`을 한글로 바꾸면 역시 멈추므로, 한글 이름은 이 지역화 파일에만 둡니다(메뉴 막대의 앱 메뉴 이름은 지역화한 `CFBundleName`). 지역화한 표시 이름은 Info.plist의 `CFBundleDisplayName`이 파일 이름(`NamuDump`)과 같을 때만 쓰입니다. Windows는 시작 메뉴와 제거 목록, Linux는 데스크톱 항목 이름이 '나무덤프'입니다.
 - **아이콘**
   - 모양은 가운데 잎맥을 따라 접힌 잎 하나가 펼친 책처럼 보이는 것입니다. 밝은 쪽에는 가는 틈 세 줄을 내어 글줄을 나타내고, 어두운 쪽은 통으로 둡니다.
   - 맥: 원본은 Icon Composer 문서 `build/AppIcon.icon`입니다. 여기서 만든 `Assets.car`(macOS 26 이상의 Liquid Glass 아이콘)와 `AppIcon.icns`(오래된 macOS, .dmg 볼륨 아이콘)를 앱에 넣고 `CFBundleIconName`을 `AppIcon`으로 둡니다. 결과물도 저장소에 두므로 아이콘을 고치지 않으면 빌드에 Xcode가 필요 없습니다. 다시 만들 때는 Xcode 안의 Icon Composer와 `xcrun actool`을 씁니다(`ictool`은 Icon Composer 안의 것. `xcrun ictool`은 이름만 같은 다른 도구).
