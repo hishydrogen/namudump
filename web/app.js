@@ -962,12 +962,19 @@
       if (url && b.isConnected && !b.querySelector('iframe')) { b.style.backgroundImage = `url("${url}")`; b.classList.add('has-thumb'); }
     });
   }, { rootMargin: '600px 0px' }) : null;
+  // 재생 단추의 삼각형: 무게중심((9.5+9.5+17)/3, 12)이 정확히 가운데(12, 12)에 오게 그린다
+  const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 7.6v8.8c0 .5.5.8.9.5l6.9-4.4c.4-.2.4-.8 0-1L10.4 7.1c-.4-.3-.9 0-.9.5z" fill="currentColor"/></svg>';
+  // 재생할 수 있는 틀: 가운데 재생 단추, 아래 가장자리에 종류와 '브라우저에서 열기'
+  function playCtl(kind, link, yt) {
+    return `<div class="ctl ctl-play"><button class="play${yt ? ' yt' : ''}" type="button" aria-label="${esc(kind)} 재생">${PLAY_SVG}</button>` +
+      `<div class="cap"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div></div>`;
+  }
   function setupEmbeds(root) {
     root.querySelectorAll('.nd-embed').forEach((b) => {
       const link = b.dataset.link, kind = b.dataset.kind || '외부 콘텐츠';
       if (thumbObs && ((b.dataset.yt && /^[\w-]{6,}$/.test(b.dataset.yt)) || /^https?:\/\//.test(b.dataset.video || ''))) thumbObs.observe(b);
       if (b.dataset.embed) {
-        b.innerHTML = `<div class="ctl"><button class="play" type="button" aria-label="재생">${I.play}</button><span>${esc(kind)} (인터넷 필요)</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
+        b.innerHTML = playCtl(kind, link, !!b.dataset.yt);
         b.querySelector('.play').onclick = () => {
           const f = document.createElement('iframe');
           f.src = b.dataset.embed + (b.dataset.embed.includes('?') ? '&' : '?') + 'autoplay=1';
@@ -977,7 +984,7 @@
           b.innerHTML = ''; b.appendChild(f);
         };
       } else if (b.dataset.video) {
-        b.innerHTML = `<div class="ctl"><button class="play" type="button" aria-label="재생">${I.play}</button><span>${esc(kind)} (인터넷 필요)</span><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a></div>`;
+        b.innerHTML = playCtl(kind, link, false);
         b.querySelector('.play').onclick = () => {
           const v = document.createElement('video');
           v.src = b.dataset.video; v.controls = true; v.autoplay = true; v.playsInline = true;

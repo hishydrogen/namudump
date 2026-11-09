@@ -152,21 +152,48 @@
   position: relative; width: 100%; max-width: 640px; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; margin: .4em 0;
   background: #111 center/cover no-repeat; display: grid; place-items: center; color: #fff;
 }
-/* 썸네일이 있으면 그 위에 재생 단추를 띄운다(안내 상자는 옅게) */
+/* 썸네일(유튜브 그림, 동영상 파일의 첫 장면)이 받아지면 서서히 드러난다 */
 .nd-content .nd-embed.has-thumb { animation: ndthumb .25s var(--nd-ease); }
-.nd-content .nd-embed.has-thumb .ctl { background: rgba(0, 0, 0, .35); position: relative; z-index: 1; }
 .nd-content .nd-embed .nd-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s var(--nd-ease); pointer-events: none; }
 .nd-content .nd-embed.has-thumb .nd-poster { opacity: 1; }
 @keyframes ndthumb { from { background-color: #111; } }
 .nd-content .nd-embed.nd-embed-map { display: inline-flex; width: auto; max-width: none !important; aspect-ratio: auto !important; background: none; color: inherit; overflow: visible; margin: .2em 0; }
 .nd-content .nd-embed.nd-embed-map .ctl { flex-direction: row; padding: 0; gap: 6px; }
 .nd-content .nd-embed.nd-embed-map a { font-size: .95em; color: var(--nd-ext); }
-.nd-content .nd-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.nd-content .nd-embed iframe, .nd-content .nd-embed video:not(.nd-poster) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+/* 재생할 수 없는 틀(외부 콘텐츠, 지도): 가운데 작은 안내 상자 */
 .nd-content .nd-embed .ctl { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; background: rgba(0,0,0,.45); padding: 14px 18px; border-radius: 12px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .nd-content .nd-embed.nd-embed-map .ctl { background: none; }
-.nd-content .nd-embed .play { width: 56px; height: 56px; border-radius: 50%; border: 0; background: #ff0033; color: #fff; cursor: pointer; display: grid; place-items: center; }
-.nd-content .nd-embed .play svg { width: 26px; height: 26px; margin-left: 3px; }
 .nd-content .nd-embed a { color: inherit; font-size: 13px; opacity: .9; }
+/* 재생할 수 있는 틀: 가운데 재생 단추, 아래 가장자리에 종류와 '브라우저에서 열기' */
+.nd-content .nd-embed .ctl-play {
+  position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: 0; border-radius: 0;
+  background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.nd-content .nd-embed.has-thumb .ctl-play { background: linear-gradient(to top, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0) 38%); }
+.nd-content .nd-embed .cap {
+  position: absolute; left: 16px; right: 16px; bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; line-height: 1.3; color: rgba(255, 255, 255, .8); text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.nd-content .nd-embed .cap a { font-size: 12.5px; color: #fff; opacity: .85; }
+.nd-content .nd-embed .cap a:hover { opacity: 1; }
+.nd-content .nd-embed .play {
+  width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: #fff;
+  background: rgba(20, 20, 20, .55); border: 1px solid rgba(255, 255, 255, .18);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+  transition: transform .15s var(--nd-ease), background-color .15s var(--nd-ease);
+}
+.nd-content .nd-embed .play svg { width: 30px; height: 30px; display: block; }
+.nd-content .nd-embed .play:hover { transform: scale(1.06); background: rgba(0, 0, 0, .7); }
+.nd-content .nd-embed .play:active { transform: scale(.97); }
+.nd-content .nd-embed .play:focus-visible { outline: 3px solid rgba(255, 255, 255, .75); outline-offset: 3px; }
+/* 유튜브: 유튜브 재생 단추처럼 둥근 빨간 사각형 */
+.nd-content .nd-embed .play.yt {
+  width: 68px; height: 48px; border-radius: 14px; border: 0; background: #ff0033;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.nd-content .nd-embed .play.yt:hover { background: #e6002e; }
+.nd-content .nd-embed .play.yt svg { width: 28px; height: 28px; }
 
 /* 분류 문서 목록 */
 .nd-content .nd-catlist { margin-top: 1.4em; }

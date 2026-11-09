@@ -420,7 +420,8 @@ kbd { font-family: var(--nd-font); }
 /* 기본 화살표는 상자 오른쪽 끝에 붙어 위치를 바꿀 수 없어서 끄고, 오른쪽 여백을 두고 직접 그린다 */
 .nd-select {
   -webkit-appearance: none; appearance: none;
-  height: 34px; max-width: 220px; padding: 0 34px 0 12px; border-radius: 9px; border: 1px solid var(--nd-line);
+  /* 너비는 고정: 설치된 글꼴 목록을 늦게 받아 와도 상자가 늘어나며 덜컥거리지 않게 */
+  width: 220px; height: 34px; padding: 0 34px 0 12px; border-radius: 9px; border: 1px solid var(--nd-line);
   background: var(--nd-bg) var(--nd-chev) no-repeat right 12px center / 12px 12px;
   color: var(--nd-text); font: 13.5px var(--nd-font); cursor: pointer; outline: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: border-color .15s;
