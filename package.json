@@ -6,7 +6,7 @@
   "main": "app/main.js",
   "author": "Hishydrogen",
   "license": "MIT",
-  "homepage": "https://github.com/hishydrogen/namudump",
+  "homepage": "https://github.com/hishydrogen/NamuDump",
   "private": true,
   "scripts": {
     "start": "electron .",
