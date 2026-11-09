@@ -70,10 +70,17 @@
     else { p.style.width = '100%'; progT = setTimeout(() => { p.classList.remove('run'); p.style.width = '0'; }, 250); }
   }
   let toastT = null;
-  function toast(msg) {
+  function toast(msg, ms) {
     const t = $('#nd-toast');
     t.textContent = msg; t.hidden = false;
-    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, ms || 2200);
+  }
+  // 덤프 파일을 열지 못했을 때: 이미 열린 덤프가 있으면 그대로 쓰고 이유를 알린다.
+  // 열린 덤프가 없으면 첫 화면이 오류를 보여 준다
+  function dumpOpenFailed(r) {
+    if (S.status && S.status.ready) {
+      toast((r.error || '덤프 파일을 열지 못했습니다.') + ' 기존 덤프 파일을 계속 사용합니다.', 6000);
+    } else { closeModal(); route(); }
   }
 
   // ── 테마, 글자 크기 ─────────────────────────────────────
@@ -150,16 +157,45 @@
     applyDarkStyles(document.querySelector('.nd-content'));
     syncWindowBg();
   }
-  // 맥 창 바탕색을 화면 바탕색에 맞춘다(창 크기가 바뀌는 순간 검거나 흰 빈 곳이 보이지 않게)
+  // 창 바탕색을 화면 바탕색에 맞춘다(창 크기가 바뀌는 순간 검거나 흰 빈 곳이 보이지 않게).
+  // 윈도우, 리눅스의 창 단추(titleBarOverlay)는 웹 화면 위에 따로 그려지므로 상단 막대 색을 직접 알려 준다.
+  // 단추 색을 바꾸면 운영체제가 그 자리를 다시 그리며 깜빡이므로, 설정 창이나 보관함은 상단 막대를 덮지 않게 했다(app.css).
+  function parseColor(s) {
+    s = String(s || '').trim();
+    let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+    if (m) {
+      const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+      return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(1);
+    }
+    m = /^rgba?\(([^)]+)\)$/i.exec(s);
+    if (!m) return null;
+    const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    if (p.length < 3 || p.some((x) => isNaN(x))) return null;
+    return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+  }
+  function over(top, base) {       // top(알파 있음)을 불투명한 base 위에 겹친 색
+    const a = top[3];
+    return [0, 1, 2].map((i) => top[i] * a + base[i] * (1 - a)).concat(1);
+  }
+  function toHex(c) { return '#' + c.slice(0, 3).map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join(''); }
+  // 설정 창이나 보관함이 떠 있는지 표시한다. 윈도우, 리눅스에서는 이때 상단 막대를 누르면 떠 있는 것을 닫는다
+  function markOverlay() {
+    const open = ['nd-modal', 'nd-drawer'].some((id) => { const el = document.getElementById(id); return el && !el.hidden && !el.classList.contains('closing'); });
+    document.documentElement.classList.toggle('nd-overlay-open', open);
+  }
   let bgSent = '';
   function syncWindowBg() {
     if (!macOn) return;
-    let hex = getComputedStyle(document.documentElement).getPropertyValue('--nd-bg').trim().toLowerCase();
-    if (/^#[0-9a-f]{3}$/.test(hex)) hex = '#' + hex.slice(1).split('').map((c) => c + c).join('');
-    if (!/^#[0-9a-f]{6}$/.test(hex)) return;
-    if (hex === bgSent) return;
-    bgSent = hex;
-    api('bg', { color: hex }).catch(() => { bgSent = ''; });
+    const cs = getComputedStyle(document.documentElement);
+    const bg = parseColor(cs.getPropertyValue('--nd-bg'));
+    if (!bg) return;
+    const glass = parseColor(cs.getPropertyValue('--nd-glass'));
+    const bar = glass ? over(glass, bg) : bg;
+    const body = { color: toHex(bg), bar: toHex(bar) };
+    const key = JSON.stringify(body);
+    if (key === bgSent) return;
+    bgSent = key;
+    api('bg', body).catch(() => { bgSent = ''; });
   }
   mq.addEventListener && mq.addEventListener('change', applyTheme);
   function applyDarkStyles(root) {
@@ -276,6 +312,7 @@
     const page = $('#nd-page');
     if (!key || !page.firstChild) return;
     const frag = document.createDocumentFragment();
+    resetEmbeds(page);
     while (page.firstChild) frag.appendChild(page.firstChild);   // 옮기기만 한다(복사하지 않음)
     // 미리 보기로만 쓰므로 id는 지운다(지금 화면의 #nd-content 등과 겹치지 않게)
     frag.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
@@ -659,7 +696,7 @@
     try {
       const r = await api('pick');
       if (r.ok) { await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
-      else if (!r.cancelled) { await refreshStatus(); route(); }
+      else if (!r.cancelled) { await refreshStatus(); dumpOpenFailed(r); }
     } finally { progress(false); }
   }
   async function openDumpPath(p) {
@@ -669,7 +706,7 @@
       const r = await api('open', { path: p });
       await refreshStatus();
       if (r.ok) { closeModal(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
-      else { closeModal(); route(); }
+      else dumpOpenFailed(r);
     } finally { progress(false); }
   }
   async function refreshStatus() {
@@ -691,6 +728,17 @@
     const plat = window.ndNative.platform;
     root.classList.add('nd-native', plat === 'darwin' ? 'nd-mac' : plat === 'win32' ? 'nd-win' : 'nd-linux');
     setTimeout(syncWindowBg, 0);
+    // 윈도우, 리눅스: 설정 창과 보관함은 상단 막대를 덮지 않는다(창 단추 색을 바꾸지 않게).
+    // 그동안 상단 막대의 단추나 검색창을 누르면 그 동작 대신 떠 있는 것을 닫는다
+    if (plat !== 'darwin') {
+      const bar = document.querySelector('.nd-topbar');
+      const guard = (e) => {
+        if (!root.classList.contains('nd-overlay-open')) return;
+        e.preventDefault(); e.stopPropagation();
+        if (e.type === 'click') { closeModal(); closeDrawer(); }
+      };
+      ['mousedown', 'click'].forEach((t) => bar.addEventListener(t, guard, true));
+    }
     window.ND_setFullscreen = (fs) => { root.classList.toggle('nd-fullscreen', !!fs); };
     // 맥: 트랙패드, 매직 마우스로 좌우로 쓸어 앞뒤로 가기. 세로 스크롤, 튕기기, 휠은 크로미움이 그대로 한다
     const SWIPE_KIND = ['begin', 'move', 'end'];
@@ -981,33 +1029,51 @@
     return `<div class="ctl ctl-play"><button class="play${yt ? ' yt' : ''}" type="button" aria-label="${esc(kind)} 재생">${PLAY_SVG}</button>` +
       `<div class="cap"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div></div>`;
   }
-  function setupEmbeds(root) {
+  // 재생 단추뿐 아니라 썸네일 어디를 눌러도 재생한다('브라우저에서 열기' 링크는 제외)
+  function onPlay(b, start) {
+    b.querySelector('.ctl-play').onclick = (e) => { if (!e.target.closest('a')) start(); };
+  }
+  function setupEmbeds(root) { root.querySelectorAll('.nd-embed').forEach(initEmbed); }
+  // 떠나는 화면은 쓸어서 넘기기 미리 보기로 보관하는데(keepPage), iframe은 문서에서 옮길 때마다 처음부터
+  // 다시 불러오고 autoplay=1이 붙어 있어 멈춰 둔 동영상이 보이지 않는 곳에서 다시 재생된다.
+  // 그래서 보관하기 전에 재생기를 멈추고 걷어 내 처음의 재생 단추로 되돌린다.
+  function resetEmbeds(root) {
     root.querySelectorAll('.nd-embed').forEach((b) => {
-      const link = b.dataset.link, kind = b.dataset.kind || '외부 콘텐츠';
-      if (thumbObs && ((b.dataset.yt && /^[\w-]{6,}$/.test(b.dataset.yt)) || /^https?:\/\//.test(b.dataset.video || ''))) thumbObs.observe(b);
-      if (b.dataset.embed) {
-        b.innerHTML = playCtl(kind, link, !!b.dataset.yt);
-        b.querySelector('.play').onclick = () => {
-          const f = document.createElement('iframe');
-          f.src = b.dataset.embed + (b.dataset.embed.includes('?') ? '&' : '?') + 'autoplay=1';
-          f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-          f.setAttribute('allowfullscreen', '');
-          f.referrerPolicy = 'strict-origin-when-cross-origin';
-          b.innerHTML = ''; b.appendChild(f);
-        };
-      } else if (b.dataset.video) {
-        b.innerHTML = playCtl(kind, link, false);
-        b.querySelector('.play').onclick = () => {
-          const v = document.createElement('video');
-          v.src = b.dataset.video; v.controls = true; v.autoplay = true; v.playsInline = true;
-          b.innerHTML = ''; b.appendChild(v);
-        };
-      } else {
-        b.innerHTML = b.classList.contains('nd-embed-map')
-          ? `<div class="ctl">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">지도에서 보기</a>` : '<span>지도</span>'}</div>`
-          : `<div class="ctl"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
-      }
+      const players = b.querySelectorAll('iframe, video:not(.nd-poster)');
+      if (!players.length) return;
+      players.forEach((el) => {
+        if (el.tagName === 'VIDEO') { try { el.pause(); } catch (e) { /* 무시 */ } el.removeAttribute('src'); el.load(); }
+        else el.src = 'about:blank';
+      });
+      if (!b.style.backgroundImage) b.classList.remove('has-thumb');
+      initEmbed(b);
     });
+  }
+  function initEmbed(b) {
+    const link = b.dataset.link, kind = b.dataset.kind || '외부 콘텐츠';
+    if (thumbObs && ((b.dataset.yt && /^[\w-]{6,}$/.test(b.dataset.yt)) || /^https?:\/\//.test(b.dataset.video || ''))) thumbObs.observe(b);
+    if (b.dataset.embed) {
+      b.innerHTML = playCtl(kind, link, !!b.dataset.yt);
+      onPlay(b, () => {
+        const f = document.createElement('iframe');
+        f.src = b.dataset.embed + (b.dataset.embed.includes('?') ? '&' : '?') + 'autoplay=1';
+        f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+        f.setAttribute('allowfullscreen', '');
+        f.referrerPolicy = 'strict-origin-when-cross-origin';
+        b.innerHTML = ''; b.appendChild(f);
+      });
+    } else if (b.dataset.video) {
+      b.innerHTML = playCtl(kind, link, false);
+      onPlay(b, () => {
+        const v = document.createElement('video');
+        v.src = b.dataset.video; v.controls = true; v.autoplay = true; v.playsInline = true;
+        b.innerHTML = ''; b.appendChild(v);
+      });
+    } else {
+      b.innerHTML = b.classList.contains('nd-embed-map')
+        ? `<div class="ctl">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">지도에서 보기</a>` : '<span>지도</span>'}</div>`
+        : `<div class="ctl"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
+    }
   }
 
   // 없는 문서 링크 표시
@@ -1154,7 +1220,14 @@
     spyRaf = 0;
     if (!spyHeads.length || !spyLinks.size || $('#nd-side').hidden) return;
     let cur = spyHeads[0];
-    const line = 90;
+    // 기준선(이 선을 지난 마지막 제목이 지금 문단)은 보통 상단 막대 바로 아래에 둔다.
+    // 그런데 끝 문단들이 짧으면 문서 끝까지 내려도 그 제목이 기준선에 닿지 못한다.
+    // 그래서 마지막 한 화면을 내리는 동안 기준선을 화면 아래쪽까지 같이 내려, 끝에 닿으면 보이는 마지막 제목이 잡히게 한다
+    const sc = SCR(), vh = window.innerHeight;
+    const maxScroll = sc.scrollHeight - vh;
+    const span = Math.min(vh, maxScroll);
+    const t = span > 0 ? Math.max(0, Math.min(1, 1 - (maxScroll - sc.scrollTop) / span)) : 1;
+    const line = 90 + Math.max(0, vh - 90 - 60) * t;
     for (const h of spyHeads) {
       if (h.offsetParent === null) continue;
       if (h.getBoundingClientRect().top <= line) cur = h; else break;
@@ -1412,6 +1485,7 @@
     clearTimeout(drawerCloseT);
     drawer.classList.remove('closing'); scrim.classList.remove('closing');
     scrim.hidden = false; drawer.hidden = false;
+    markOverlay();
     $$('#nd-drawer-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === drawerTab));
     moveDrawerPill(!wasOpen);
     // 열린 채로 탭을 바꾸면 데이터를 받아 온 뒤 새 목록이 이동 방향에서 부드럽게 밀려 들어오게 한다
@@ -1498,6 +1572,7 @@
     const drawer = $('#nd-drawer'), scrim = $('#nd-scrim');
     if (drawer.hidden || drawer.classList.contains('closing')) return;
     drawer.classList.add('closing'); scrim.classList.add('closing');
+    markOverlay();
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     drawerCloseT = setTimeout(() => {
       drawer.hidden = true; scrim.hidden = true;
@@ -1524,7 +1599,9 @@
       <div class="nd-row"><div class="l">방문 기록 저장<small>열람한 문서를 보관함에 기록합니다. 기존 기록은 보관함에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
       <div class="nd-row"><div class="l">없는 문서 링크 구분<small>덤프에 없는 문서로 연결된 링크를 빨간색으로 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
       <div class="nd-sub-h">덤프 파일</div>
-      <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><button class="nd-btn" id="nd-change-db">${I.folder}파일 변경</button></div>
+      <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><div class="nd-btns">${st.ready ? '<button class="nd-btn" id="nd-close-db">연결 해제</button>' : ''}<button class="nd-btn" id="nd-change-db">${I.folder}${st.ready ? '파일 변경' : '파일 선택'}</button></div></div>
+      <div class="nd-sub-h">초기화</div>
+      <div class="nd-row"><div class="l">설정 및 기록 초기화<small>설정과 방문 기록, 즐겨찾기를 모두 초기화하고 덤프 파일 연결을 해제합니다. 원본 덤프 파일은 삭제되지 않습니다</small></div><button class="nd-btn nd-danger" id="nd-reset">초기화</button></div>
       <div class="nd-sub-h">정보</div>
       <div class="nd-about-card">
         <div class="nd-about-head">
@@ -1557,6 +1634,26 @@
       if (c.dataset.sw === 'link_check') { if (location.pathname.startsWith('/w/')) route(); }
     });
     $('#nd-change-db').onclick = pickDump;
+    const cdb = $('#nd-close-db');
+    if (cdb) cdb.onclick = async () => {
+      try { await api('close_dump', {}); } catch (e) { toast(e.message); return; }
+      await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일 연결을 해제했습니다.');
+    };
+    // 되돌릴 수 없으므로 한 번 더 눌러야 지운다(보관함의 기록 지우기와 같은 방식)
+    const rst = $('#nd-reset');
+    let rstT = 0;
+    rst.onclick = async () => {
+      if (!rst.classList.contains('armed')) {
+        rst.classList.add('armed'); rst.textContent = '한 번 더 누르면 초기화됩니다';
+        rstT = setTimeout(() => { rst.classList.remove('armed'); rst.textContent = '초기화'; }, 3000);
+        return;
+      }
+      clearTimeout(rstT);
+      try { await api('reset', {}); } catch (e) { toast(e.message); return; }
+      try { sessionStorage.clear(); } catch (e) { /* 무시 */ }
+      try { localStorage.clear(); } catch (e) { /* 무시 */ }
+      location.replace('/');
+    };
     const fsel = $('#nd-font');
     fsel.onchange = () => saveSettings({ font: fsel.value });
     // 설치된 글꼴 목록은 운영체제에 물어 채운다(Local Font Access). 못 받으면 기본 선택지만 둔다
@@ -1588,12 +1685,14 @@
     clearTimeout(modalCloseT);
     m.classList.remove('closing');
     m.hidden = false;
+    markOverlay();
     $('#nd-modal-sc').scrollTop = 0; $('.nd-modal-card').classList.remove('scrolled');
   }
   function closeModal() {
     const m = $('#nd-modal');
     if (m.hidden || m.classList.contains('closing')) return;
     m.classList.add('closing');
+    markOverlay();
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     modalCloseT = setTimeout(() => { m.hidden = true; m.classList.remove('closing'); }, reduce ? 0 : ANIM_OUT);
   }

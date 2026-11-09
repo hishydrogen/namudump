@@ -184,7 +184,8 @@
   transition: transform .15s var(--nd-ease), background-color .15s var(--nd-ease);
 }
 .nd-content .nd-embed .play svg { width: 30px; height: 30px; display: block; }
-.nd-content .nd-embed .play:hover { transform: scale(1.06); background: rgba(0, 0, 0, .7); }
+.nd-content .nd-embed .ctl-play { cursor: pointer; }
+.nd-content .nd-embed .ctl-play:hover .play { transform: scale(1.06); background: rgba(0, 0, 0, .7); }
 .nd-content .nd-embed .play:active { transform: scale(.97); }
 .nd-content .nd-embed .play:focus-visible { outline: 3px solid rgba(255, 255, 255, .75); outline-offset: 3px; }
 /* 유튜브: 유튜브 재생 단추처럼 둥근 빨간 사각형 */
@@ -192,7 +193,7 @@
   width: 68px; height: 48px; border-radius: 14px; border: 0; background: #ff0033;
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
-.nd-content .nd-embed .play.yt:hover { background: #e6002e; }
+.nd-content .nd-embed .ctl-play:hover .play.yt { background: #e6002e; }
 .nd-content .nd-embed .play.yt svg { width: 28px; height: 28px; }
 
 /* 분류 문서 목록 */

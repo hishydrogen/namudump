@@ -40,7 +40,7 @@ const app = new App(store, { version: '9.9.9', platform: process.platform });
 assert.ok(app.openDump(dump), app.dumpError);
 const get = (ep, q) => app.handle('GET', ep, q || {}).data;
 const post = (ep, body) => app.handle('POST', ep, {}, body).data;
-test.after(() => { app.dump.close(); store.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+test.after(() => { app.closeDump(); store.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
 
 test('상태', () => {
   const s = get('status');
@@ -129,4 +129,50 @@ test('기본 브라우저로는 웹 주소와 메일만 연다', () => {
   assert.equal(isExternalUrl('file:///etc/passwd'), false);
   assert.equal(isExternalUrl('javascript:alert(1)'), false);
   assert.equal(isExternalUrl('https://a.example/\nx'), false);
+});
+
+test('덤프 연결 해제와 초기화', () => {
+  post('bookmark', { title: '나무', on: true });
+  post('history', { title: '나무' });
+  post('settings', { theme: 'dark' });
+  assert.equal(post('close_dump').ok, true);
+  let s = get('status');
+  assert.equal(s.ready, false);
+  assert.equal(s.db_path, '');
+  assert.equal(s.settings.auto_find, false);
+  assert.equal(get('doc', { title: '나무' }).need_dump, true);
+  assert.ok(app.openDump(dump));
+  assert.equal(get('status').settings.auto_find, true);
+  assert.equal(post('reset').ok, true);
+  s = get('status');
+  assert.equal(s.ready, false);
+  assert.equal(s.settings.theme, 'system');
+  assert.equal(s.settings.auto_find, false);
+  assert.deepEqual(get('bookmarks'), []);
+  assert.deepEqual(get('history'), []);
+  // 다시 열면 이전처럼 쓸 수 있다
+  assert.ok(app.openDump(dump));
+  assert.equal(get('status').ready, true);
+});
+
+test('덤프가 아닌 파일을 고르면 오류를 알리고 기존 덤프를 그대로 쓴다', () => {
+  const img = path.join(tmp, 'photo.png');
+  fs.writeFileSync(img, Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex'));
+  const r = post('open', { path: img });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /SQLite|덤프/);
+  const s = get('status');
+  assert.equal(s.ready, true);
+  assert.equal(s.error, '');
+  assert.equal(s.db_path, dump);
+});
+
+test('윈도우 네트워크 경로(\\\\Mac\\...)는 호스트를 경로 쪽으로 옮긴 주소로 연다', () => {
+  const { sqliteUri } = require('../app/core/dump');
+  const { pathToFileURL } = require('node:url');
+  const u = pathToFileURL('\\\\Mac\\Home\\namu html.sqlite', { windows: true });
+  assert.equal(u.host, 'mac');
+  // sqliteUri가 쓰는 규칙과 같은 결과
+  assert.equal('file:////' + u.host + u.pathname, 'file:////mac/Home/namu%20html.sqlite');
+  assert.match(sqliteUri(dump), /^file:\/\/\/[^/]/);
 });

@@ -22,6 +22,14 @@ function asciiLower(buf) {
   return buf;
 }
 
+// SQLite가 읽는 file: 주소. 윈도우 네트워크 경로(\\Mac\Home\... 처럼 Parallels 공유 폴더나 NAS)는
+// pathToFileURL이 file://Mac/Home/...로 만드는데, SQLite는 주소의 호스트 자리(Mac)를 받지 않는다
+// (invalid uri authority). 호스트를 경로 쪽으로 옮긴 file:////Mac/Home/... 꼴로 넘긴다.
+function sqliteUri(p) {
+  const u = pathToFileURL(p);
+  return u.host ? 'file:////' + u.host + u.pathname : u.href;
+}
+
 class Dump {
   constructor(p) {
     this.path = path.resolve(expandHome(String(p || '')));
@@ -29,9 +37,13 @@ class Dump {
     try { st = fs.statSync(this.path); } catch (e) { st = null; }
     if (!st || !st.isFile()) throw new DumpError('해당 경로에서 파일을 찾을 수 없습니다: ' + this.path);
     // immutable=1: 잠금과 변경 확인을 하지 않는다(외장 드라이브에서도 빠르게 읽는다)
-    const uri = pathToFileURL(this.path).href + '?mode=ro&immutable=1';
+    const uri = sqliteUri(this.path) + '?mode=ro&immutable=1';
     try {
-      this.db = new DatabaseSync(uri, { readOnly: true });
+      try { this.db = new DatabaseSync(uri, { readOnly: true }); } catch (e) {
+        // 네트워크 경로를 주소 꼴로 못 열면 경로 그대로 연다(읽기 전용은 그대로, immutable만 빠진다)
+        if (!/^file:\/{4}/.test(uri)) throw e;
+        this.db = new DatabaseSync(this.path, { readOnly: true });
+      }
       this.db.exec('PRAGMA cache_size = -65536');
       const cols = new Set(this.db.prepare('PRAGMA table_info(docs)').all().map((r) => r.name));
       if (cols.has('title') && cols.has('md') && !cols.has('html')) {
@@ -43,7 +55,10 @@ class Dump {
     } catch (e) {
       if (this.db) { try { this.db.close(); } catch (x) { /* 무시 */ } this.db = null; }
       if (e instanceof DumpError) throw e;
-      throw new DumpError('SQLite 데이터베이스 파일이 아니거나 손상되었습니다: ' + e.message);
+      // 그림 등 다른 파일을 고른 경우가 대부분이라 영어 오류 문구(file is not a database)는 덧붙이지 않는다
+      throw new DumpError(/not a database|file is encrypted/i.test(e.message)
+        ? '지원하는 나무위키 덤프 파일(namu-html.sqlite)이 아닙니다.'
+        : 'SQLite 데이터베이스 파일이 아니거나 손상되었습니다: ' + e.message);
     }
     this.meta = {};
     try {
@@ -163,4 +178,4 @@ class Dump {
   }
 }
 
-module.exports = { Dump, DumpError, NAMESPACES };
+module.exports = { sqliteUri, Dump, DumpError, NAMESPACES };

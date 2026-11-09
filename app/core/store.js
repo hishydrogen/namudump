@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
   toc_sidebar: true,
   link_check: true,
   record_history: true,
+  auto_find: true,       // 연결된 덤프가 없을 때 다운로드 폴더의 namu-html.sqlite를 찾아 연다(연결을 해제하면 끈다)
 };
 const HISTORY_KEEP = 500;
 
@@ -73,6 +74,13 @@ class UserStore {
   }
   history(limit = 200) { return this.q.history.all(limit).map((r) => ({ title: r.title, visited_at: r.visited_at })); }
   clearHistory() { this.q.histClear.run(); }
+
+  // 모든 설정, 즐겨찾기, 방문 기록을 지운다. 다운로드 폴더의 덤프를 다시 자동으로 열지 않게 auto_find는 끈다
+  reset() {
+    this.db.exec('DELETE FROM bookmarks; DELETE FROM history;');
+    this.settings = { ...DEFAULT_SETTINGS };
+    return this.saveSettings({ auto_find: false });
+  }
 }
 
 module.exports = { UserStore, DEFAULT_SETTINGS };

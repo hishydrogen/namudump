@@ -12,7 +12,7 @@ class App {
     this.dump = null;
     this.dumpError = '';
     let p = store.settings.db_path || '';
-    if (!p) {
+    if (!p && store.settings.auto_find !== false) {
       const cand = path.join(os.homedir(), 'Downloads', 'namu-html.sqlite');
       if (fs.existsSync(cand)) p = cand;
     }
@@ -30,17 +30,24 @@ class App {
     if (this.dump) this.dump.close();
     this.dump = d;
     this.dumpError = '';
-    this.store.saveSettings({ db_path: d.path });
+    this.store.saveSettings({ db_path: d.path, auto_find: true });
     // 제목 포함 검색에 쓰는 목록을 조금 뒤에 미리 읽어 둔다(첫 화면을 먼저 띄운다)
     setTimeout(() => { try { if (this.dump === d) d.loadTitles(); } catch (e) { /* 무시 */ } }, 1500);
     return true;
+  }
+
+  // 덤프 연결을 끊는다. 파일은 건드리지 않는다
+  closeDump() {
+    if (this.dump) this.dump.close();
+    this.dump = null;
+    this.dumpError = '';
   }
 
   status() {
     const d = this.dump, s = this.store.settings;
     return {
       ready: !!d,
-      error: this.dumpError,
+      error: d ? '' : this.dumpError,     // 열린 덤프가 있으면 새 파일을 열지 못한 오류는 그때 한 번만 알린다
       db_path: d ? d.path : (s.db_path || ''),
       doc_count: d ? d.count : 0,
       meta: d ? d.meta : {},
@@ -124,6 +131,16 @@ class App {
     if (ep === 'open') {
       const r = this.openDump(String(data.path || ''));
       return ok({ ok: r, error: this.dumpError, path: this.dump ? this.dump.path : '' });
+    }
+    if (ep === 'close_dump') {
+      this.closeDump();
+      store.saveSettings({ db_path: '', auto_find: false });
+      return ok({ ok: true });
+    }
+    if (ep === 'reset') {
+      this.closeDump();
+      store.reset();
+      return ok({ ok: true });
     }
     if (ep === 'bookmark') { store.setBookmark(String(data.title || ''), !!data.on); return ok({ ok: true }); }
     if (ep === 'history') {

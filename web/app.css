@@ -4,6 +4,14 @@
   src: url(/fonts/PretendardVariable.woff2) format("woff2-variations"), url(/fonts/PretendardVariable.woff2) format("woff2");
 }
 
+/* 윈도우 고정폭 글자(경로, 코드) 속 한글 전용: 한국어 윈도우의 기본 고정폭 글꼴은 굴림체라 한글이 굴림체로 나온다.
+   한글 영역만 맡는 글꼴을 윈도우 고정폭 목록 맨 앞에 두어 한글은 Pretendard, 영문과 숫자는 Consolas로 그린다(아래 .nd-win) */
+@font-face {
+  font-family: "ND Mono Hangul"; font-weight: 45 920; font-style: normal; font-display: block;
+  src: url(/fonts/PretendardVariable.woff2) format("woff2-variations"), url(/fonts/PretendardVariable.woff2) format("woff2");
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7A3, U+D7B0-D7FF;
+}
+
 /* ── 기본 토큰 ─────────────────────────────────────────── */
 :root {
   /* 기본 글꼴은 앱에 들어 있는 Pretendard. 설정에서 고른 글꼴은 app.js가 이 값을 바꿔 넣는다 */
@@ -504,6 +512,7 @@ kbd { font-family: var(--nd-font); }
 .nd-toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 120;
   background: rgba(30, 34, 38, .92); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px;
+  max-width: min(560px, calc(100vw - 40px)); text-align: center; line-height: 1.5;
   box-shadow: var(--nd-shadow-lg); animation: ndpop var(--nd-t-pop) var(--nd-ease);
 }
 .nd-totop {
@@ -535,3 +544,24 @@ html::-webkit-scrollbar { display: none; }
 .nd-sbar.on { opacity: 1; pointer-events: auto; transition-duration: .1s; }
 .nd-sbar-thumb { position: absolute; top: 0; right: 3px; width: 7px; border-radius: 4px; background: var(--nd-sbar); transition: width .12s var(--nd-ease), background-color .12s var(--nd-ease); }
 .nd-sbar:hover .nd-sbar-thumb, .nd-sbar.drag .nd-sbar-thumb { width: 10px; border-radius: 5px; background: var(--nd-sbar-on); }
+
+/* ── 윈도우, 리눅스: 떠 있는 창은 상단 막대를 덮지 않는다 ──
+   창 단추(titleBarOverlay)는 웹 화면 위에 따로 그려져 어두운 막이 덮이지 않는다. 단추 색을 따라 바꾸면
+   운영체제가 그 자리를 다시 그리며 깜빡이므로, 어두운 막과 보관함, 설정 창을 상단 막대 아래에서 시작한다. */
+.nd-win .nd-scrim, .nd-linux .nd-scrim, .nd-win .nd-modal, .nd-linux .nd-modal,
+.nd-win .nd-drawer, .nd-linux .nd-drawer { top: var(--nd-top-h); }
+.nd-win .nd-modal-card, .nd-linux .nd-modal-card { max-height: calc(88vh - var(--nd-top-h)); }
+/* 보관함 그림자가 위로 번져 상단 막대에 비치면 창 단추 자리만 밝게 남는다. 위쪽 그림자는 잘라 낸다 */
+.nd-win .nd-drawer, .nd-linux .nd-drawer { clip-path: inset(0 0 -80px -80px); }
+
+/* 설정: 덤프 파일 단추 묶음, 초기화 단추 */
+.nd-btns { display: flex; gap: 8px; }
+.nd-btn.nd-danger { color: var(--nd-missing); }
+.nd-btn.nd-danger.armed { background: var(--nd-missing); border-color: var(--nd-missing); color: #fff; }
+
+/* ── 윈도우 글꼴: 한국어 윈도우의 기본 고정폭 글꼴(monospace)은 굴림체다 ──
+   글꼴을 정하지 않은 <code> 등도 굴림체로 나오므로 고정폭 목록을 직접 정하고, 한글은 Pretendard로 그린다.
+   경로 입력란의 안내 문구는 문장이라 본문 글꼴로 쓴다(고정폭이면 띄어쓰기가 넓게 벌어진다) */
+.nd-win { --nd-mono: "ND Mono Hangul", Consolas, "Cascadia Mono", "Malgun Gothic", monospace; }
+.nd-win code, .nd-win samp, .nd-win pre { font-family: var(--nd-mono); }
+.nd-win .nd-pathrow input::placeholder { font-family: var(--nd-font); }

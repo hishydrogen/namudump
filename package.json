@@ -1,7 +1,7 @@
 {
   "name": "namudump",
   "productName": "나무덤프",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어",
   "main": "app/main.js",
   "author": "Hishydrogen",
@@ -77,6 +77,7 @@
       "allowToChangeInstallationDirectory": true,
       "artifactName": "namudump-${version}-win-${arch}-setup.${ext}",
       "shortcutName": "나무덤프",
+      "createDesktopShortcut": false,
       "uninstallDisplayName": "나무덤프"
     },
     "linux": {

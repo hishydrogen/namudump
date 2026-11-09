@@ -24,6 +24,9 @@ const SUPPORT = process.env.NAMUDUMP_SUPPORT || path.join(app.getPath('appData')
 // 크로미움이 쓰는 파일(캐시, 저장소)은 설정과 섞이지 않게 따로 둔다
 app.setPath('userData', path.join(SUPPORT, 'electron'));
 app.setName(APP_NAME);
+// 윈도우 앱 ID(AUMID). 바탕 화면 바로가기에는 앱 ID를 넣지 않으므로(build/installer.nsh, Parallels 대응)
+// 앱이 직접 정해 어떤 바로가기로 켜도 작업 표시줄에서 한 앱으로 묶이게 한다. electron-builder의 appId와 같아야 한다
+if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
 protocol.registerSchemesAsPrivileged([{
   scheme: SCHEME,
@@ -106,10 +109,11 @@ function startMacInput() {
 
 // ── 창 ──────────────────────────────────────────────────
 const LIGHT_BG = '#ffffff';
-function overlayFor(bg) {
-  // 윈도우, 리눅스의 최소화, 최대화, 닫기 단추. 상단 막대 높이에 맞추고 바탕색을 따른다
+function overlayFor(bg, symbol) {
+  // 윈도우, 리눅스의 최소화, 최대화, 닫기 단추. 상단 막대 색을 따르고(화면이 알려 준다),
+  // 상단 막대 아래 1px 경계선은 가리지 않게 그보다 1px 낮게 둔다
   const dark = isDark(bg);
-  return { color: bg, symbolColor: dark ? '#e8e8e8' : '#333333', height: TOP_H };
+  return { color: bg, symbolColor: symbol || (dark ? '#e8e8e8' : '#333333'), height: TOP_H - 1 };
 }
 function isDark(hex) {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
@@ -130,6 +134,8 @@ function windowOptions() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, sandbox: true, nodeIntegration: false,
       spellcheck: false, navigateOnDragDrop: false,
+      // 한국어 윈도우의 기본 고정폭 글꼴은 굴림체다. 글꼴을 정하지 않은 고정폭 글자도 Consolas로 쓰게 한다
+      ...(process.platform === 'win32' ? { defaultFontFamily: { monospace: 'Consolas' } } : {}),
       // 맥: 문서 끝에서 더 당기면 맥 기본 고무줄 효과로 튕긴다(합성 스레드가 처리해 끊기지 않는다)
       scrollBounce: IS_MAC,
     },
@@ -242,7 +248,10 @@ ipcMain.handle('nd', async (e, ep, body) => {
     const c = String(body.color || '');
     if (!win || !/^#[0-9a-f]{6}$/i.test(c)) return { ok: false };
     win.setBackgroundColor(c);
-    if (!IS_MAC) { try { win.setTitleBarOverlay(overlayFor(c)); } catch (x) { /* 무시 */ } }
+    if (!IS_MAC) {
+      const hex = (x) => (/^#[0-9a-f]{6}$/i.test(String(x || '')) ? String(x) : '');
+      try { win.setTitleBarOverlay(overlayFor(hex(body.bar) || c, hex(body.symbol))); } catch (x) { /* 무시 */ }
+    }
     return { ok: true };
   }
   if (ep === 'open_url') return { ok: openExternal(String(body.url || '')) };
