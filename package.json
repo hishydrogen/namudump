@@ -1,7 +1,7 @@
 {
   "name": "namudump",
   "productName": "나무덤프",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어",
   "main": "app/main.js",
   "author": "Hishydrogen",
