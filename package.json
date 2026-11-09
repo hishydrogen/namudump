@@ -1,0 +1,95 @@
+{
+  "name": "namudump",
+  "productName": "나무덤프",
+  "version": "3.0.0",
+  "description": "나무위키 덤프를 인터넷 없이 읽는 프로그램",
+  "main": "app/main.js",
+  "author": "hishydrogen",
+  "license": "MIT",
+  "homepage": "https://github.com/hishydrogen/namudump",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "build:native": "node-gyp rebuild --directory native/mac-input",
+    "postinstall": "node -e \"process.platform==='darwin'&&require('child_process').execSync('npm run build:native',{stdio:'inherit'})\"",
+    "dist:mac": "electron-builder --mac --arm64",
+    "dist:win": "electron-builder --win --x64 --arm64",
+    "dist:linux": "electron-builder --linux --x64 --arm64"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "node-gyp": "^11.5.0"
+  },
+  "build": {
+    "appId": "com.hishydrogen.namudump",
+    "productName": "NamuDump",
+    "copyright": "© 2026 hishydrogen",
+    "artifactName": "namudump-${version}-${os}-${arch}.${ext}",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": [
+      "package.json",
+      "app/**",
+      "web/**",
+      "!**/*.map"
+    ],
+    "npmRebuild": false,
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "category": "public.app-category.reference",
+      "icon": "build/AppIcon.icns",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "minimumSystemVersion": "12.0",
+      "extraResources": [
+        { "from": "build/Assets.car", "to": "Assets.car" },
+        { "from": "native/mac-input/build/Release/mac_input.node", "to": "native/mac_input.node" },
+        { "from": "build/mac/InfoPlist.strings", "to": "ko.lproj/InfoPlist.strings" },
+        { "from": "build/mac/InfoPlist.strings", "to": "en.lproj/InfoPlist.strings" }
+      ],
+      "extendInfo": {
+        "CFBundleDisplayName": "NamuDump",
+        "LSHasLocalizedDisplayName": true,
+        "CFBundleIconName": "AppIcon",
+        "CFBundleDevelopmentRegion": "ko",
+        "CFBundleAllowMixedLocalizations": true,
+        "LSApplicationCategoryType": "public.app-category.reference"
+      }
+    },
+    "dmg": {
+      "title": "나무덤프 ${version}",
+      "background": "build/dmg_background.tiff",
+      "icon": "build/AppIcon.icns",
+      "window": { "width": 660, "height": 440 },
+      "iconSize": 128,
+      "contents": [
+        { "x": 180, "y": 128, "type": "file" },
+        { "x": 480, "y": 128, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64", "arm64"] }],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "namudump-${version}-win-${arch}-setup.${ext}",
+      "shortcutName": "나무덤프",
+      "uninstallDisplayName": "나무덤프"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "build/icon.png",
+      "executableName": "namudump",
+      "category": "Education",
+      "synopsis": "나무위키 덤프를 인터넷 없이 읽는 프로그램",
+      "maintainer": "hishydrogen",
+      "desktop": { "entry": { "Name": "나무덤프", "Comment": "나무위키 덤프를 인터넷 없이 읽는 프로그램", "StartupWMClass": "namudump" } }
+    }
+  }
+}

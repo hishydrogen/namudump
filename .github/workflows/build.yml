@@ -1,0 +1,41 @@
+# 다섯 환경(macOS Apple Silicon, Windows x64/Arm64, Linux x64/arm64)에서 각각 빌드한다.
+# 태그(v*)를 올리거나 Actions 화면에서 직접 실행할 때 돈다. 만든 파일은 작업 결과물(artifact)로만 올리고
+# GitHub 릴리스에 게시하지는 않는다.
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14,         target: --mac --arm64 }
+          - { os: windows-latest,   target: --win --x64 }
+          - { os: windows-11-arm,   target: --win --arm64 }
+          - { os: ubuntu-24.04,     target: --linux --x64 }
+          - { os: ubuntu-24.04-arm, target: --linux --arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # 맥에서는 postinstall이 트랙패드 쓸기 모듈(native/mac-input)을 함께 빌드한다
+      - run: npm ci
+      - run: npm test
+      - run: npx electron-builder ${{ matrix.target }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: namudump-${{ matrix.os }}
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: error

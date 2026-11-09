@@ -29,6 +29,9 @@
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   };
 
+  const IS_MAC = /Mac/.test(navigator.platform);
+  const MODK = IS_MAC ? '⌘' : 'Ctrl';
+  const keyLabel = (s) => (IS_MAC ? s : s.replace(/⌘⇧/g, 'Ctrl+Shift+').replace(/⌘/g, 'Ctrl+'));
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -38,22 +41,23 @@
 
   const S = {
     status: null, settings: {}, classMap: { size: {}, align: {} },
-    doc: null, bookmarks: new Set(), loadSeq: 0,
+    doc: null, bookmarks: new Set(), loadSeq: 0, native: false,
   };
 
   // ── 서버 호출 ───────────────────────────────────────────
+  // 창과 운영체제 기능은 Electron(preload.js의 ndNative)에 맡긴다
+  const NATIVE_EPS = new Set(['pick', 'bg', 'open_url', 'window_title', 'quit', 'swipe_lock']);
   async function api(path, body) {
+    if (NATIVE_EPS.has(path)) {
+      if (!window.ndNative) return { ok: false };
+      return window.ndNative.call(path, body);
+    }
     const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
     const r = await fetch('/api/' + path, opt);
     let j = null;
     try { j = await r.json(); } catch (e) { j = { error: '응답을 읽지 못했습니다.' }; }
     if (!r.ok && !j.missing) { const err = new Error(j.error || ('HTTP ' + r.status)); err.data = j; err.status = r.status; throw err; }
     return j;
-  }
-
-  // 앱(네이티브 창)에게 알린다. 도구 막대, 사이드바, 창 제목이 이 값을 보고 바뀐다.
-  function host(kind, data) {
-    try { window.webkit.messageHandlers.nd.postMessage(Object.assign({ kind }, data)); } catch (e) { /* 무시 */ }
   }
 
   // ── 진행 막대, 알림 ─────────────────────────────────────
@@ -77,21 +81,32 @@
     const t = S.settings.theme || 'system';
     return t === 'system' ? (mq.matches ? 'dark' : 'light') : t;
   }
+  const THEME_NAME = { system: '시스템', light: '라이트', dark: '다크' };
   function applyTheme() {
     const t = resolvedTheme();
     document.documentElement.dataset.theme = t;
+    const mode = S.settings.theme || 'system';
+    const tb = document.getElementById('nd-theme');
+    if (tb) {
+      tb.innerHTML = mode === 'light' ? I.sun : mode === 'dark' ? I.moon : I.auto;
+      const next = { system: 'light', light: 'dark', dark: 'system' }[mode];
+      tb.title = `화면 모드: ${THEME_NAME[mode]} (누르면 ${THEME_NAME[next]})`;
+    }
+    const segEl = document.querySelector('#nd-modal-b [data-set="theme"]');
+    if (segEl) segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === mode));
     applyDarkStyles(document.querySelector('.nd-content'));
     syncWindowBg();
   }
-  // 창 바탕색을 화면 바탕색에 맞춘다(창 크기가 바뀌거나 튕길 때 다른 색이 보이지 않게)
+  // 맥 창 바탕색을 화면 바탕색에 맞춘다(창 크기가 바뀌는 순간 검거나 흰 빈 곳이 보이지 않게)
   let bgSent = '';
   function syncWindowBg() {
+    if (!macOn) return;
     let hex = getComputedStyle(document.documentElement).getPropertyValue('--nd-bg').trim().toLowerCase();
     if (/^#[0-9a-f]{3}$/.test(hex)) hex = '#' + hex.slice(1).split('').map((c) => c + c).join('');
     if (!/^#[0-9a-f]{6}$/.test(hex)) return;
     if (hex === bgSent) return;
     bgSent = hex;
-    host('bg', { color: hex });
+    api('bg', { color: hex }).catch(() => { bgSent = ''; });
   }
   mq.addEventListener && mq.addEventListener('change', applyTheme);
   function applyDarkStyles(root) {
@@ -103,8 +118,15 @@
       el.setAttribute('style', dark ? (light ? light.replace(/;?\s*$/, ';') : '') + el.getAttribute('data-dark-style') : light);
     });
   }
+  // 글꼴: pretendard(앱에 들어 있음), system(운영체제 기본), 그 밖에는 설치된 글꼴 이름
+  function fontStack(v) {
+    if (!v || v === 'pretendard') return '"Pretendard Variable", var(--nd-font-system)';
+    if (v === 'system') return 'var(--nd-font-system)';
+    return `"${String(v).replace(/["\\]/g, '')}", "Pretendard Variable", var(--nd-font-system)`;
+  }
   function applyLayout() {
     const r = document.documentElement.style;
+    r.setProperty('--nd-font', fontStack(S.settings.font));
     r.setProperty('--nd-fs', (S.settings.font_size || 15) + 'px');
     const w = { narrow: '820px', normal: '1080px', wide: '1500px' }[S.settings.width || 'normal'] || '1080px';
     r.setProperty('--nd-maxw', w);
@@ -124,9 +146,16 @@
     opts = opts || {};
     saveView();
     const cur = history.state || {};
+    const idx = cur.idx || 0;
     history.replaceState(Object.assign({}, cur, { y: SCR().scrollTop }), '');
-    if (opts.replace) history.replaceState({ y: 0, key: cur.key || newKey() }, '', url);
-    else history.pushState({ y: 0, key: newKey() }, '', url);
+    if (opts.replace) {
+      if (cur.key) dropEntry(cur.key);
+      history.replaceState({ y: 0, idx, key: cur.key || newKey() }, '', url);
+    } else {
+      history.pushState({ y: 0, idx: idx + 1, key: newKey() }, '', url); setNavMax(idx + 1);
+      navKeys.length = idx + 1;
+    }
+    navKeys[navIdx()] = history.state.key;
     route(false);
   }
 
@@ -167,7 +196,209 @@
       v.open = $$('details', content).map((d) => d.open);
     }
     views.set(viewKey, v);
+    keepPage(viewKey, v);
   }
+
+  // ── 쓸어서 뒤로, 앞으로 ─────────────────────────────────
+  // 맥 창(mac_chrome.py)이 트랙패드, 매직 마우스의 좌우 쓸기를 ND_swipe로 넘긴다.
+  // 상단 막대는 그대로 두고 그 아래 문서 영역(#nd-main)만 손가락을 따라 움직이며,
+  // 뒤에는 떠날 때 보관해 둔 이전(다음) 문서 화면을 사파리처럼 겹쳐 보인다.
+  const navKeys = [];                 // 기록 순번별 key
+  // key → { frag, side, css, v, box, dir }  떠날 때 그려져 있던 화면.
+  // box는 바로 앞뒤 기록의 미리 보기를 한가할 때 미리 만들어 숨겨 둔 것이다(쓸기를 시작할 때 멈칫하지 않게)
+  const pageCache = new Map();
+  const PAGE_CACHE_MAX = 6;
+  function coolEntry(e) {             // 미리 만든 미리 보기를 걷고 내용은 다시 보관한다
+    if (!e || !e.box || e.box === SW.view) return;
+    const page = e.box.querySelector('.nd-page');
+    while (page.firstChild) e.frag.appendChild(page.firstChild);
+    e.box.remove(); e.box = null;
+  }
+  function dropEntry(key) {
+    const e = pageCache.get(key);
+    if (e && e.box && e.box !== SW.view) e.box.remove();
+    pageCache.delete(key);
+  }
+  function keepPage(key, v) {
+    const page = $('#nd-page');
+    if (!key || !page.firstChild) return;
+    const frag = document.createDocumentFragment();
+    while (page.firstChild) frag.appendChild(page.firstChild);   // 옮기기만 한다(복사하지 않음)
+    // 미리 보기로만 쓰므로 id는 지운다(지금 화면의 #nd-content 등과 겹치지 않게)
+    frag.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+    // 옆 목차는 링크 목록(nav의 내용)만 보관한다. 겉 상자까지 담으면 id가 같은 목차가 둘 생긴다
+    dropEntry(key);
+    pageCache.set(key, { frag, side: $('#nd-side').hidden ? '' : $('#nd-side-toc').innerHTML, css: $('#nd-wiki-css').textContent, v, box: null, dir: 0 });
+    while (pageCache.size > PAGE_CACHE_MAX) dropEntry(pageCache.keys().next().value);
+  }
+  const SW = { mode: null, dir: 0, off: 0, w: 1, view: null, entry: null, key: null, hist: [], pendingNav: false, anim: false, raf: 0 };
+  // 애니메이션 시간(app.css의 --nd-t-out, --nd-t-swipe와 같게)
+  const ANIM_OUT = 160;
+  const SWIPE_MS = 260;
+  // 미리 보기 상자를 만든다. warm이면 배치까지 끝낸 뒤 숨겨 둔다
+  function buildPreview(key, entry, dir, warm) {
+    const box = document.createElement('div');
+    box.className = 'nd-swipe-view ' + (dir < 0 ? 'under' : 'over');
+    box.dataset.k = key || '';
+    box.innerHTML = `<div class="nd-swipe-in"><main class="nd-main"><div class="nd-layout"><div class="nd-page"></div>
+      <aside class="nd-side"${entry && entry.side ? '' : ' hidden'}><div class="nd-side-in"><div class="nd-side-h">목차</div><nav class="nd-side-toc">${entry ? entry.side : ''}</nav></div></aside></div></main></div>
+      <div class="nd-swipe-shade"></div>`;
+    if (entry) {
+      // 문서 CSS는 이 미리 보기 안에서만 듣게 범위를 바꾼다(지금 문서에 섞이지 않게)
+      if (entry.css) { const st = document.createElement('style'); st.textContent = entry.css.replace(/:where\(#nd-main\) \.nd-content(?![\w-])/g, `:where(.nd-swipe-view[data-k="${CSS.escape(key)}"]) .nd-content`); box.appendChild(st); }
+      box.querySelector('.nd-page').appendChild(entry.frag);
+    }
+    if (warm) box.style.visibility = 'hidden';
+    document.body.appendChild(box);
+    positionPreview(box, entry);
+    if (warm) { box.classList.add('nd-warm'); box.style.visibility = ''; }
+    return box;
+  }
+  // 바로 앞뒤 기록의 미리 보기를 미리 만들어 두고, 멀어진 것은 걷는다
+  let warmT = 0;
+  function warmSoon(ms) {
+    clearTimeout(warmT);
+    warmT = setTimeout(() => (window.requestIdleCallback || ((f) => setTimeout(f, 0)))(warmNeighbors, { timeout: 2000 }), ms == null ? 500 : ms);
+  }
+  function warmNeighbors() {
+    if (SW.mode === 'swipe' || SW.anim || SW.pendingNav) { warmSoon(); return; }
+    const want = new Map();
+    for (const dir of [-1, 1]) { const k = navKeys[navIdx() + dir]; if (k && pageCache.has(k)) want.set(k, dir); }
+    pageCache.forEach((e, k) => { if (e.box && want.get(k) !== e.dir) coolEntry(e); });
+    want.forEach((dir, k) => { const e = pageCache.get(k); if (!e.box) { e.box = buildPreview(k, e, dir, true); e.dir = dir; } });
+  }
+  window.addEventListener('resize', () => { pageCache.forEach(coolEntry); warmSoon(800); });
+  function swipeView(dir) {
+    const key = navKeys[navIdx() + dir];
+    const entry = key ? pageCache.get(key) : null;
+    let box;
+    if (entry && entry.box && entry.dir === dir) {
+      box = entry.box;
+      box.classList.remove('nd-warm');
+    } else {
+      if (entry) coolEntry(entry);
+      box = buildPreview(key, entry, dir, false);
+      if (entry) { entry.box = box; entry.dir = dir; }
+    }
+    SW.key = key; SW.entry = entry;
+    return box;
+  }
+  function positionPreview(box, entry) {
+    if (entry && entry.v) {
+      // 떠날 때의 자리: 맨 위에 있던 요소가 같은 높이에 오도록 맞춘다
+      const inner = box.querySelector('.nd-swipe-in');
+      inner.style.transform = `translateY(${-entry.v.y}px)`;
+      const content = box.querySelector('.nd-content');
+      let el = content;
+      if (el && entry.v.path) for (const i of entry.v.path) el = el && el.children[i];
+      if (entry.v.path && el && el.getClientRects().length) {
+        const fix = entry.v.top - el.getBoundingClientRect().top;
+        inner.style.transform = `translateY(${-entry.v.y + fix}px)`;
+      }
+      // 옆 목차는 실제 화면에서 위에 붙어 있으므로(sticky) 미리 보기에서도 같은 높이로 내린다
+      const side = box.querySelector('.nd-side:not([hidden])');
+      if (side) {
+        const want = topBarH() + 20, now = side.getBoundingClientRect().top;
+        if (now < want) side.style.transform = `translateY(${want - now}px)`;
+      }
+    }
+  }
+  // 입력이 몰려 와도 화면에는 프레임마다 한 번만 반영한다
+  function swipeApply() { if (!SW.raf) SW.raf = requestAnimationFrame(swipeApplyNow); }
+  function swipeApplyNow() {
+    cancelAnimationFrame(SW.raf); SW.raf = 0;
+    if (!SW.view) return;
+    const p = Math.min(1, Math.abs(SW.off) / SW.w);
+    const main = $('#nd-main');
+    if (SW.dir < 0) {           // 뒤로: 지금 문서가 오른쪽으로 밀려나고, 아래에서 이전 문서가 드러난다
+      main.style.transform = `translateX(${SW.off}px)`;
+      SW.view.style.transform = `translateX(${-0.3 * SW.w * (1 - p)}px)`;
+    } else {                    // 앞으로: 다음 문서가 오른쪽에서 덮으며 들어오고, 지금 문서는 살짝 밀린다
+      SW.view.style.transform = `translateX(${SW.w * (1 - p)}px)`;
+      main.style.transform = `translateX(${-0.3 * SW.w * p}px)`;
+    }
+    SW.view.style.setProperty('--shade', String(SW.dir < 0 ? (1 - p) * 0.12 : 0));
+  }
+  function swipeStart(fx, x, y) {
+    SW.mode = 'none';
+    if (SW.anim || SW.pendingNav) return;
+    // 좌우로 스크롤할 수 있는 표 위에서는 넘기지 않고 표를 굴린다
+    // 좌우로 스크롤할 수 있는 곳(넓은 표) 위에서는 넘기지 않는다. 스크롤은 WebKit이 그대로 한다.
+    const t = wheelTarget(x, y, -fx, 0);
+    const page = SCR();
+    if (t && t !== page) { SW.mode = 'scroll'; return; }
+    const dir = fx > 0 ? -1 : 1;
+    if (!$('#nd-modal').hidden || !$('#nd-drawer').hidden) return;
+    if (dir < 0 ? navIdx() <= 0 : navIdx() >= navMax()) return;
+    closePop(); closeSugg();
+    SW.mode = 'swipe'; SW.dir = dir; SW.off = 0; SW.w = window.innerWidth; SW.hist = [];
+    $('#nd-main').classList.add('nd-swiping', dir < 0 ? 'on-top' : 'below');
+    SW.view = swipeView(dir);
+    // 이 쓸기는 앞뒤 이동이므로, 이제부터 이 동작의 입력은 WebKit에 넘기지 말라고 맥 창에 알린다
+    if (S.native) api('swipe_lock', {}).catch(() => {});
+    swipeMove(fx);
+    swipeApplyNow();          // 미리 보기가 제자리(화면 밖 등)에서 시작하게 바로 놓는다
+  }
+  function swipeMove(fx) {
+    if (SW.mode !== 'swipe') return;
+    SW.off += fx;
+    SW.off = SW.dir < 0 ? Math.max(0, Math.min(SW.w, SW.off)) : Math.min(0, Math.max(-SW.w, SW.off));
+    const now = performance.now();
+    SW.hist.push([now, SW.off]);
+    while (SW.hist.length > 2 && now - SW.hist[0][0] > 100) SW.hist.shift();
+    swipeApply();
+  }
+  function swipeEnd() {
+    if (SW.mode !== 'swipe') { SW.mode = null; return; }
+    SW.mode = null;
+    const h = SW.hist, a = h[0], b = h[h.length - 1];
+    const vel = a && b && b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0;   // px/ms, 손가락 방향
+    const p = Math.abs(SW.off) / SW.w;
+    const toward = SW.dir < 0 ? vel : -vel;                                   // 넘어가는 쪽이 양수
+    const commit = p > 0.35 || (p > 0.05 && toward > 0.45);
+    SW.anim = true;
+    const main = $('#nd-main');
+    [main, SW.view].forEach((e) => { e.style.transition = `transform ${SWIPE_MS}ms var(--nd-ease)`; });
+    SW.view.classList.add('anim');
+    SW.off = commit ? (SW.dir < 0 ? SW.w : -SW.w) : 0;
+    swipeApplyNow();
+    setTimeout(() => {
+      if (commit) {
+        SW.pendingNav = true;
+        if (SW.dir < 0) history.back(); else history.forward();
+      } else {
+        swipeReset(true);
+      }
+    }, SWIPE_MS);
+  }
+  // 쓸기를 되돌리거나(되돌린 화면은 다시 보관) 넘어간 뒤 정리한다
+  function swipeReset(keep) {
+    const main = $('#nd-main');
+    main.style.transition = 'none'; main.style.transform = '';
+    main.classList.remove('nd-swiping', 'on-top', 'below');
+    cancelAnimationFrame(SW.raf); SW.raf = 0;
+    const view = SW.view;
+    if (view) {
+      if (keep && SW.entry && SW.entry.box === view) {
+        // 되돌린 쓸기: 미리 보기는 다음 쓸기를 위해 숨겨 둔다
+        view.classList.remove('anim');
+        view.style.transition = 'none'; view.style.transform = ''; view.style.removeProperty('--shade');
+        view.classList.add('nd-warm');
+        requestAnimationFrame(() => { view.style.transition = ''; });
+      } else {
+        if (SW.key) { const e = pageCache.get(SW.key); if (e) e.box = null; pageCache.delete(SW.key); }
+        view.remove();
+      }
+    }
+    SW.view = null; SW.entry = null; SW.key = null; SW.anim = false; SW.pendingNav = false;
+    requestAnimationFrame(() => { main.style.transition = ''; });
+  }
+  function swipeFinish() { swipeReset(false); warmSoon(); }
+  window.ND_swipe = (kind, fx, x, y) => {
+    if (kind === 'begin') swipeStart(fx, x, y);
+    else if (kind === 'move') swipeMove(fx);
+    else if (kind === 'end') swipeEnd();
+  };
 
   function restoreView(content, v) {
     if (v.collapsed) {
@@ -198,6 +429,7 @@
     const st = history.state || {};
     const view = isPop ? (views.get(st.key) || (st.y != null ? { y: st.y } : null)) : null;
     viewKey = null;
+    updateNavBtns();
     if (!S.status || !S.status.ready) { renderOnboarding(); return; }
     if (path.startsWith('/w/')) {
       let title;
@@ -212,21 +444,43 @@
       if (view) SCR().scrollTo(0, view.y);
     }
     if (!path.startsWith('/w/')) viewKey = st.key || null;
+    warmSoon();
   }
   window.addEventListener('popstate', async () => {
     // 이때 화면에는 아직 떠나는 문서가 그려져 있다
     saveView();
+    navKeys[navIdx()] = history.state && history.state.key;
     await route(true);
+    // 쓸어서 넘어온 경우, 새 문서가 자리를 잡은 뒤(두 번 그린 뒤) 미리 보기를 걷는다
+    if (SW.pendingNav) requestAnimationFrame(() => requestAnimationFrame(swipeFinish));
   });
+
+  // 뒤로, 앞으로 단추: 기록마다 순번(idx)을 붙이고 가장 앞선 순번을 기억해 갈 곳이 있는지 판단한다.
+  // 갈 곳이 없으면 단추를 흐리게 하고 누를 수 없게 한다.
+  const NAV_MAX_KEY = 'nd-nav-max';
+  function navIdx() { return (history.state && history.state.idx) || 0; }
+  function navMax() { try { return +sessionStorage.getItem(NAV_MAX_KEY) || 0; } catch (e) { return navIdx(); } }
+  function setNavMax(n) { try { sessionStorage.setItem(NAV_MAX_KEY, String(n)); } catch (e) { /* 무시 */ } }
+  function updateNavBtns() {
+    $('#nd-back').disabled = navIdx() <= 0;
+    $('#nd-fwd').disabled = navIdx() >= navMax();
+  }
 
   // ── 레이아웃 도우미 ─────────────────────────────────────
   function setPage(html, opts) {
     opts = opts || {};
     const page = $('#nd-page');
     page.innerHTML = html;
-    // 불러오는 중 뼈대(keepScroll)는 도구 막대와 사이드바를 건드리지 않는다
-    if (!opts.keepScroll) { host('star', { enabled: !!opts.star, on: false }); host('toc', { items: [] }); }
-    $('#nd-wiki-css').textContent = opts.css || '';
+    $('#nd-side').hidden = !opts.side;
+    // 즐겨찾기 단추는 자리를 항상 차지해서 다른 단추가 밀리지 않게 한다
+    const star = $('#nd-star');
+    star.hidden = false;
+    star.style.visibility = opts.star ? 'visible' : 'hidden';
+    star.disabled = !opts.star;
+    star.tabIndex = opts.star ? 0 : -1;
+    // 문서 CSS는 지금 문서(#nd-main 안)에만 듣게 한다. 미리 보기 쪽은 따로 범위를 바꿔 넣는다
+    // :where()는 우선순위를 올리지 않아 원래 CSS와 같은 세기로 듣는다
+    $('#nd-wiki-css').textContent = (opts.css || '').replace(/\.nd-content(?![\w-])/g, ':where(#nd-main) .nd-content');
     if (!opts.keepScroll) SCR().scrollTo(0, 0);
     return page;
   }
@@ -243,54 +497,80 @@
     return d ? `${+d[1]}년 ${+d[2]}월 ${+d[3]}일` : '';
   }
   async function renderHome() {
-    setTitle('나무덤프');
+    setTitle('나무덤프', '');
     const st = S.status;
     setPage(`
       <div class="nd-home">
-        <div class="nd-hero">
-          <div class="nd-hero-logo"></div>
-          <h1>나무덤프</h1>
-          <p>${dumpDate() ? dumpDate() + ' 덤프, ' : ''}문서 ${fmtNum(st.doc_count)}개</p>
-        </div>
         <div class="nd-bigsearch" id="nd-bigsearch">
           <span class="ic">${I.search}</span>
-          <input id="nd-bigq" type="search" placeholder="어떤 문서를 찾으세요?" autocomplete="off" spellcheck="false">
+          <input id="nd-bigq" type="search" placeholder="문서 제목으로 찾기" autocomplete="off" spellcheck="false" aria-label="문서 제목으로 찾기">
           <div class="nd-sugg" id="nd-bigsugg" hidden></div>
         </div>
-        <div class="nd-home-actions">
-          <button class="nd-btn pri" id="nd-home-random">${I.shuffle}아무 문서나 읽기</button>
-          <a class="nd-btn" href="/w/${encodeURIComponent('나무위키')}" data-title="나무위키">${I.doc}나무위키란?</a>
+        <div class="nd-home-meta">
+          <span>${dumpDate() ? dumpDate() + ' 덤프 · ' : ''}문서 ${fmtNum(st.doc_count)}개</span>
+          <a id="nd-home-dump" title="다른 덤프 파일 열기">덤프 바꾸기</a>
         </div>
         <section class="nd-sect" id="nd-home-recent"></section>
         <section class="nd-sect" id="nd-home-bm"></section>
-        <div class="nd-tips">
-          <span><kbd>⌘</kbd> <kbd>K</kbd> 검색</span><span><kbd>⌘</kbd> <kbd>[</kbd> <kbd>]</kbd> 뒤로, 앞으로</span>
-          <span><kbd>⌘</kbd> <kbd>F</kbd> 문서 안에서 찾기</span><span><kbd>⌘</kbd> <kbd>R</kbd> 아무 문서</span><span><kbd>⌘</kbd> <kbd>+</kbd> <kbd>−</kbd> 글자 크기</span>
-        </div>
+        <section class="nd-sect" id="nd-home-discover"></section>
         <div class="nd-about">
-          이 화면의 문서는 나무위키 기여자들이 작성한 것으로, <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a>에 따라 이용할 수 있습니다.<br>
-          원본 파일은 읽기 전용으로 엽니다. 이미지 자리에는 설명만 표시합니다.
+          문서는 나무위키 기여자들이 작성했으며 <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a>에 따라 이용할 수 있습니다.
+          덤프에는 이미지 파일이 없어 이미지 자리에는 설명만 표시합니다.
         </div>
       </div>`, { side: false });
     const bq = $('#nd-bigq');
     attachSuggest(bq, $('#nd-bigsugg'));
     setTimeout(() => bq.focus(), 30);
-    $('#nd-home-random').onclick = randomDoc;
+    $('#nd-home-dump').onclick = pickDump;
     refreshHomeLists();
+    refreshDiscover();
+  }
+  // 카드 하나: 제목(두 줄까지), 아래에 이름공간(분류, 틀 등)과 덧붙일 글
+  function tileHtml(title, meta) {
+    const ns = nsOf(title);
+    const name = ns ? title.slice(ns.length + 1) : title;
+    const sub = (ns ? `<span class="ns">${esc(ns)}</span>` : '') + (meta ? esc(meta) : '');
+    return `<a class="nd-tile" href="${docUrl(title)}" data-title="${esc(title)}" title="${esc(title)}"><b>${esc(name)}</b>` +
+      (sub ? `<small>${sub}</small>` : '') + '</a>';
   }
   async function refreshHomeLists() {
     if (!$('#nd-home-recent')) return;
     try {
       const recOn = S.settings.record_history !== false;
       const [hist, bms] = await Promise.all([recOn ? api('history') : Promise.resolve([]), api('bookmarks')]);
+      if (!$('#nd-home-recent')) return;
       S.bookmarks = new Set(bms.map((b) => b.title));
-      const tiles = (arr, when) => arr.map((x) => `<a class="nd-tile" href="${docUrl(x.title)}" data-title="${esc(x.title)}" title="${esc(x.title)}">${esc(x.title)}<small>${esc(when(x))}</small></a>`).join('');
-      $('#nd-home-recent').innerHTML = hist.length
-        ? `<div class="nd-sect-h"><h2>최근 본 문서</h2><a id="nd-home-more-h">모두 보기</a></div><div class="nd-tiles">${tiles(hist.slice(0, 12), (x) => ago(x.visited_at))}</div>` : '';
-      $('#nd-home-bm').innerHTML = bms.length
-        ? `<div class="nd-sect-h"><h2>즐겨찾기</h2><a id="nd-home-more-b">모두 보기</a></div><div class="nd-tiles">${tiles(bms.slice(0, 12), (x) => ago(x.added_at) + ' 추가')}</div>` : '';
-      const mh = $('#nd-home-more-h'); if (mh) mh.onclick = () => host('sidebar', { tab: 'history' });
-      const mb = $('#nd-home-more-b'); if (mb) mb.onclick = () => host('sidebar', { tab: 'bookmarks' });
+      const more = (id) => `<button type="button" id="${id}">모두 보기${I.fwd}</button>`;
+      const last = hist[0];
+      $('#nd-home-recent').innerHTML = last ? `
+        <div class="nd-sect-h"><h2>이어서 읽기</h2>${hist.length > 1 ? more('nd-home-more-h') : ''}</div>
+        <a class="nd-resume" href="${docUrl(last.title)}" data-title="${esc(last.title)}">
+          <div class="nd-resume-in"><div class="nd-resume-k">마지막으로 읽은 문서</div>
+            <div class="nd-resume-t">${esc(last.title)}</div><div class="nd-resume-m">${esc(ago(last.visited_at))}</div></div>${I.fwd}</a>
+        ${hist.length > 1 ? `<div class="nd-tiles">${hist.slice(1, 9).map((x) => tileHtml(x.title, ago(x.visited_at))).join('')}</div>` : ''}` : '';
+      $('#nd-home-bm').innerHTML = bms.length ? `
+        <div class="nd-sect-h"><h2>즐겨찾기</h2>${bms.length > 8 ? more('nd-home-more-b') : ''}</div>
+        <div class="nd-tiles">${bms.slice(0, 8).map((x) => tileHtml(x.title, '')).join('')}</div>` : '';
+      const mh = $('#nd-home-more-h'); if (mh) mh.onclick = () => openDrawer('history');
+      const mb = $('#nd-home-more-b'); if (mb) mb.onclick = () => openDrawer('bookmarks');
+    } catch (e) { /* 무시 */ }
+  }
+  // 둘러볼 만한 문서: 일반 문서 가운데 무작위로 몇 개
+  const DISCOVER_N = 8;
+  async function refreshDiscover() {
+    const box = $('#nd-home-discover');
+    if (!box) return;
+    if (!box.firstChild) {
+      box.innerHTML = `<div class="nd-sect-h"><h2>둘러볼 만한 문서</h2><button type="button" id="nd-home-shuffle">${I.shuffle}다른 문서</button></div><div class="nd-tiles loading" id="nd-home-dtiles">${'<span class="nd-tile"><b>…</b></span>'.repeat(DISCOVER_N)}</div>`;
+      $('#nd-home-shuffle').onclick = refreshDiscover;
+    }
+    try {
+      const rs = await Promise.all(Array.from({ length: DISCOVER_N }, () => api('random')));
+      const tiles = $('#nd-home-dtiles');
+      if (!tiles) return;
+      const titles = [...new Set(rs.map((r) => r.title).filter(Boolean))];
+      tiles.innerHTML = titles.map((t) => tileHtml(t, '')).join('');
+      tiles.classList.remove('loading');
     } catch (e) { /* 무시 */ }
   }
   function ago(ts) {
@@ -305,7 +585,7 @@
 
   // ── 시작 안내(덤프가 없을 때) ───────────────────────────
   function renderOnboarding() {
-    setTitle('나무덤프');
+    setTitle('나무덤프', '');
     const st = S.status || {};
     setPage(`
       <div class="nd-card nd-onb">
@@ -325,7 +605,7 @@
     progress(true);
     try {
       const r = await api('pick');
-      if (r.ok) { await refreshStatus(); host('dump'); go('/', { replace: true }); toast('덤프 파일을 열었습니다.'); }
+      if (r.ok) { await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일을 열었습니다.'); }
       else if (!r.cancelled) { await refreshStatus(); route(); }
     } finally { progress(false); }
   }
@@ -335,16 +615,44 @@
     try {
       const r = await api('open', { path: p });
       await refreshStatus();
-      if (r.ok) { go('/', { replace: true }); toast('덤프 파일을 열었습니다.'); }
-      else route();
+      if (r.ok) { closeModal(); go('/', { replace: true }); toast('덤프 파일을 열었습니다.'); }
+      else { closeModal(); route(); }
     } finally { progress(false); }
   }
   async function refreshStatus() {
     S.status = await api('status');
     S.settings = S.status.settings || {};
+    S.native = !!S.status.native;
+    if (window.ndNative) initWindowChrome();
     applyLayout(); applyTheme();
   }
 
+  // ── 독립 창 꾸미기: 제목 표시줄을 숨기고 상단 막대로 창을 끈다 ──
+  // 끌 수 있는 곳은 app.css의 -webkit-app-region이 정한다. 맥은 왼쪽에 신호등 단추,
+  // 윈도우와 리눅스는 오른쪽에 창 단추(titleBarOverlay)가 상단 막대 위에 놓인다.
+  let macOn = false;
+  function initWindowChrome() {
+    if (macOn) return;
+    macOn = true;
+    const root = document.documentElement;
+    const plat = window.ndNative.platform;
+    root.classList.add('nd-native', plat === 'darwin' ? 'nd-mac' : plat === 'win32' ? 'nd-win' : 'nd-linux');
+    setTimeout(syncWindowBg, 0);
+    window.ND_setFullscreen = (fs) => { root.classList.toggle('nd-fullscreen', !!fs); };
+    // 맥: 트랙패드, 매직 마우스로 좌우로 쓸어 앞뒤로 가기. 세로 스크롤, 튕기기, 휠은 크로미움이 그대로 한다
+    const SWIPE_KIND = ['begin', 'move', 'end'];
+    if (window.ndNative.onInput) window.ndNative.onInput((m) => {
+      const [k, , , sub, dx, , x, y] = m;
+      if (k === 1) window.ND_swipe(SWIPE_KIND[sub], dx, x, y);
+    });
+    // 상단 막대 위에서 굴린 휠은 문서로 넘기지 않는다(검색 제안 목록은 그 안에서 굴린다)
+    $('#nd-topbar').addEventListener('wheel', (e) => { if (!e.target.closest('#nd-sugg')) e.preventDefault(); }, { passive: false });
+  }
+  // 메뉴(맥)에서 부르는 명령
+  window.ND_command = (cmd) => {
+    if (cmd === 'settings') openSettings();
+    else if (cmd === 'pick') pickDump();
+  };
   // 오른쪽 클릭 메뉴의 "나무덤프에서 제목 검색"
   window.ND_searchSelection = () => {
     const q = String(window.getSelection() || '').replace(/\s+/g, ' ').trim().slice(0, 100);
@@ -383,15 +691,30 @@
     if (S.settings.record_history !== false) api('history', { title: d.title }).catch(() => {});
   }
 
-  // 창 제목(도구 막대에 보인다)
-  function setTitle(winTitle) {
+  // 창 제목과 상단 막대의 현재 문서 제목
+  function setTitle(winTitle, docTitle) {
     document.title = winTitle;
-    host('title', { title: winTitle.replace(/ - 나무덤프$/, '') });
+    if (S.native) api('window_title', { title: winTitle }).catch(() => {});
+    const bd = document.getElementById('nd-brand-doc');
+    if (bd) { bd.textContent = docTitle || ''; bd.title = docTitle ? docTitle + ' (누르면 맨 위로)' : ''; }
+    document.getElementById('nd-topbar').classList.remove('show-doc');
+    if (titleObs) { titleObs.disconnect(); titleObs = null; }
   }
+  let titleObs = null;
+  function watchTitle() {
+    const h1 = document.querySelector('.nd-article .nd-title');
+    const bar = document.getElementById('nd-topbar');
+    if (!h1 || !document.getElementById('nd-brand-doc').textContent) return;
+    titleObs = new IntersectionObserver(([en]) => {
+      bar.classList.toggle('show-doc', !en.isIntersecting && en.boundingClientRect.top < 80);
+    }, { rootMargin: '-60px 0px 0px 0px' });
+    titleObs.observe(h1);
+  }
+
 
   function renderDocPage(d, res, hash, view) {
     const title = d.title;
-    setTitle(title + ' - 나무덤프');
+    setTitle(title + ' - 나무덤프', title);
     const cats = res ? res.categories : [];
     const catHtml = cats.length ? `<div class="nd-cats"><span class="lbl">분류</span>${cats.slice(0, 12).map((c) => `<a href="${docUrl(c.title)}" data-title="${esc(c.title)}">${esc(c.name)}</a>`).join('')}${cats.length > 12 ? `<button class="more" id="nd-cat-more">+${cats.length - 12}</button>` : ''}</div>` : '';
     const bm = S.bookmarks.has(title) || d.bookmarked;
@@ -445,10 +768,11 @@
       viewKey = (history.state && history.state.key) || null;
     });
     setupScrollSpy(content);
+    watchTitle();
   }
 
   function renderMissing(d) {
-    setTitle(d.title + ' - 나무덤프');
+    setTitle(d.title + ' - 나무덤프', '');
     const sugg = d.suggestions || [];
     setPage(`
       <article class="nd-card nd-article nd-missing-page">
@@ -464,7 +788,8 @@
 
   // 목차
   function buildToc(content, toc) {
-    host('toc', { items: toc });
+    const side = $('#nd-side-toc');
+    side.innerHTML = toc.map((t) => `<a href="#${esc(t.id)}" data-anchor="${esc(t.id)}" class="l${t.level}" title="${esc(t.num + '. ' + t.text)}"><span class="n">${esc(t.num)}.</span>${esc(t.text)}</a>`).join('');
     const slots = $$('.nd-toc-slot', content);
     if (!toc.length) { slots.forEach((s) => s.remove()); return; }
     // 중첩 목록 만들기
@@ -489,6 +814,7 @@
   }
 
   // 이미지
+  // 덤프에는 이미지 파일이 없고 원래 주소도 만료되어서, 늘 자리 표시만 보여 준다.
   function setupImages(root) {
     root.querySelectorAll('img[data-nd-src]').forEach(showPlaceholder);
   }
@@ -557,16 +883,12 @@
       const link = b.dataset.link, kind = b.dataset.kind || '외부 콘텐츠';
       if (b.dataset.embed) {
         b.innerHTML = `<div class="ctl"><button class="play" type="button" aria-label="재생">${I.play}</button><span>${esc(kind)} (인터넷 필요)</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
-        b.querySelector('.play').onclick = async () => {
-          const url = b.dataset.embed + (b.dataset.embed.includes('?') ? '&' : '?') + 'autoplay=1';
-          // 앱 주소에서는 Referer가 없어 유튜브가 재생을 거부하므로, 앱의 작은 로컬 페이지로 감싼다
-          let wrapped = null;
-          try { wrapped = (await api('embed_url', { url })).url; } catch (e) { /* 무시 */ }
-          if (!wrapped) { openExternal(link || url); return; }
+        b.querySelector('.play').onclick = () => {
           const f = document.createElement('iframe');
-          f.src = wrapped;
+          f.src = b.dataset.embed + (b.dataset.embed.includes('?') ? '&' : '?') + 'autoplay=1';
           f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
           f.setAttribute('allowfullscreen', '');
+          f.referrerPolicy = 'strict-origin-when-cross-origin';
           b.innerHTML = ''; b.appendChild(f);
         };
       } else if (b.dataset.video) {
@@ -662,44 +984,110 @@
     if (!el) { try { el = content.querySelector('#' + CSS.escape(id.replace(/_/g, ' '))); } catch (e) { el = null; } }
     return el;
   }
+  // 짧고 빠른 스크롤 이동. 브라우저 기본 'smooth'는 먼 거리일수록 오래 걸려 답답하므로,
+  // 거리와 관계없이 0.2~0.34초 안에 끝나게 하고, 사용자가 굴리거나 누르면 바로 멈춘다.
+  let qs = { raf: 0 };
+  function quickScrollTo(top) {
+    const sc = SCR();
+    cancelAnimationFrame(qs.raf);
+    const from = sc.scrollTop;
+    const to = Math.max(0, Math.min(top, sc.scrollHeight - sc.clientHeight));
+    const dist = Math.abs(to - from);
+    if (dist < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) { sc.scrollTo({ top: to, behavior: 'instant' }); return; }
+    const dur = Math.min(340, 200 + dist / 40);
+    const t0 = performance.now();
+    const ease = (t) => 1 - Math.pow(1 - t, 4);
+    const stop = () => { cancelAnimationFrame(qs.raf); qs.raf = 0; off(); };
+    const off = () => { ['wheel', 'keydown', 'mousedown', 'touchstart'].forEach((k) => window.removeEventListener(k, stop, true)); };
+    off();
+    ['wheel', 'keydown', 'mousedown', 'touchstart'].forEach((k) => window.addEventListener(k, stop, { capture: true, passive: true }));
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      sc.scrollTo({ top: from + (to - from) * ease(t), behavior: 'instant' });
+      if (t < 1) qs.raf = requestAnimationFrame(step); else stop();
+    };
+    qs.raf = requestAnimationFrame(step);
+  }
+  // 요소가 화면 맨 위(scroll-margin-top 반영) 또는 가운데에 오게 한다
+  function scrollToEl(el, block, smooth) {
+    const sc = SCR();
+    const r = el.getBoundingClientRect();
+    let top;
+    if (block === 'center') {
+      const bar = topBarH();
+      top = sc.scrollTop + r.top - bar - Math.max(0, (window.innerHeight - bar - r.height) / 2);
+    } else {
+      // html의 scroll-padding-top(상단 막대 + 여백)과 요소의 scroll-margin-top을 함께 띄운다
+      const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      top = sc.scrollTop + r.top - pad - (parseFloat(getComputedStyle(el).scrollMarginTop) || 0);
+    }
+    if (smooth) quickScrollTo(top); else sc.scrollTo({ top, behavior: 'instant' });
+  }
   function scrollToAnchor(id, smooth) {
-    if (id === 'toc') { const t = $('#toc'); if (t) { t.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }); } return true; }
+    if (id === 'toc') { const t = $('#toc'); if (t) scrollToEl(t, 'start', smooth); return true; }
     const el = findAnchor(id);
     if (!el) return false;
     revealAnchor(el);
     const target = el.classList.contains('nd-h') ? el : (el.closest('.nd-h') || el);
-    target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: el.classList.contains('nd-fn') ? 'center' : 'start' });
+    scrollToEl(target, el.classList.contains('nd-fn') ? 'center' : 'start', smooth);
     const flashEl = el.classList.contains('nd-fn') ? el : (el.tagName === 'SPAN' && el.closest('.nd-h') ? null : el);
     if (flashEl && !flashEl.classList.contains('nd-h')) { flashEl.classList.remove('nd-flash'); void flashEl.offsetWidth; flashEl.classList.add('nd-flash'); }
     return true;
   }
 
   // 스크롤 위치에 맞춰 옆 목차 강조
-  let spyHeads = [], spyRaf = 0, spyCur = null;
+  let spyHeads = [], spyLinks = new Map(), spyRaf = 0, spyCur = null;
   function setupScrollSpy(content) {
     spyHeads = $$('.nd-h[id]', content);
+    spyLinks = new Map($$('a', $('#nd-side-toc')).map((a) => [a.dataset.anchor, a]));
     spyCur = null;
+    // 새 문서를 그린 직후(앞뒤 이동으로 읽던 자리를 되찾는 동안)에는 막대를 미끄러뜨리지 않고 바로 놓는다
+    spyInstantUntil = performance.now() + 700;
     updateSpy();
   }
-  // 사이드바의 목차가 지금 읽는 문단을 표시하도록 앱에 알린다
+  let spyInstantUntil = 0;
   function updateSpy() {
     spyRaf = 0;
-    if (!spyHeads.length) return;
+    if (!spyHeads.length || !spyLinks.size || $('#nd-side').hidden) return;
     let cur = spyHeads[0];
-    const line = topBarH() + 40;
+    const line = 90;
     for (const h of spyHeads) {
       if (h.offsetParent === null) continue;
       if (h.getBoundingClientRect().top <= line) cur = h; else break;
     }
     if (cur === spyCur) return;
     spyCur = cur;
-    host('spy', { id: cur.id });
+    spyLinks.forEach((a) => a.classList.remove('act'));
+    const a = spyLinks.get(cur.id);
+    if (a) {
+      a.classList.add('act');
+      moveTocInd(a);
+      const side = $('#nd-side');
+      const r = a.getBoundingClientRect(), sr = side.getBoundingClientRect();
+      if (r.top < sr.top + 30 || r.bottom > sr.bottom - 30) side.scrollTo({ top: side.scrollTop + r.top - sr.top - sr.height / 3, behavior: performance.now() < spyInstantUntil ? 'instant' : 'smooth' });
+    }
+  }
+  // 목차 옆 막대를 지금 문단으로 옮긴다. 새 문서를 연 직후에는 미끄러지지 않고 바로 놓는다
+  function moveTocInd(a) {
+    const toc = $('#nd-side-toc');
+    let ind = toc.querySelector('.nd-toc-ind');
+    if (!ind) { ind = document.createElement('div'); ind.className = 'nd-toc-ind'; toc.prepend(ind); }
+    const instant = performance.now() < spyInstantUntil;
+    if (instant) ind.classList.add('no-anim');
+    ind.style.transform = `translateY(${a.offsetTop}px)`;
+    ind.style.height = a.offsetHeight + 'px';
+    if (instant) {
+      clearTimeout(ind._t);
+      ind._t = setTimeout(() => ind.classList.remove('no-anim'), Math.max(0, spyInstantUntil - performance.now()) + 50);
+    }
   }
   window.addEventListener('scroll', () => { if (!spyRaf) spyRaf = requestAnimationFrame(updateSpy); }, { passive: true });
-
   // 즐겨찾기
   function updateStar(on) {
-    host('star', { enabled: true, on: !!on });
+    const b = $('#nd-star');
+    b.innerHTML = on ? I.starOn : I.star;
+    b.classList.toggle('on', !!on);
+    b.title = keyLabel(on ? '즐겨찾기에서 빼기 (⌘D)' : '즐겨찾기에 추가 (⌘D)');
     const bb = $('#nd-bm-btn');
     if (bb) { bb.classList.toggle('on', !!on); bb.innerHTML = (on ? I.starOn : I.star) + `<span>${on ? '즐겨찾기됨' : '즐겨찾기'}</span>`; }
   }
@@ -711,7 +1099,6 @@
     updateStar(on);
     toast(on ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 뺐습니다.');
     try { await api('bookmark', { title: t, on }); } catch (e) { /* 무시 */ }
-    host('lists');
   }
 
   function copyText(t) {
@@ -820,7 +1207,7 @@
   function closeSugg() { $$('.nd-sugg').forEach((b) => { b.hidden = true; }); }
 
   async function renderSearch(q) {
-    setTitle(`‘${q}’ 검색 - 나무덤프`);
+    setTitle(`‘${q}’ 검색 - 나무덤프`, '');
     setPage(`
       <article class="nd-card nd-article nd-results">
         <h1>‘${esc(q)}’ 검색 결과</h1>
@@ -888,6 +1275,177 @@
   }
   function closePop() { const p = $('#nd-pop'); if (p) p.hidden = true; popFor = null; popPinned = false; }
 
+  // ── 서랍(최근 본 문서, 즐겨찾기) ────────────────────────
+  let drawerTab = 'history';
+  let drawerCloseT = null;
+  const DRAWER_TABS = ['history', 'bookmarks'];
+  // 탭 단추 뒤의 흰 선택 표시를 고른 단추 자리로 옮긴다(처음 열 때는 애니메이션 없이 바로)
+  function moveDrawerPill(instant) {
+    const tabs = $('#nd-drawer-tabs');
+    const on = tabs.querySelector('button.on');
+    if (!on) return;
+    tabs.classList.toggle('no-anim', !!instant);
+    tabs.style.setProperty('--pill-x', on.offsetLeft + 'px');
+    tabs.style.setProperty('--pill-w', on.offsetWidth + 'px');
+    if (instant) requestAnimationFrame(() => tabs.classList.remove('no-anim'));
+  }
+  async function openDrawer(tab) {
+    const drawer = $('#nd-drawer'), scrim = $('#nd-scrim');
+    const wasOpen = !drawer.hidden && !drawer.classList.contains('closing');
+    const prevTab = drawerTab;
+    drawerTab = tab || drawerTab;
+    clearTimeout(drawerCloseT);
+    drawer.classList.remove('closing'); scrim.classList.remove('closing');
+    scrim.hidden = false; drawer.hidden = false;
+    $$('#nd-drawer-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === drawerTab));
+    moveDrawerPill(!wasOpen);
+    // 열린 채로 탭을 바꾸면 목록이 옮겨 가는 쪽에서 밀려 들어온다
+    const slide = wasOpen && prevTab !== drawerTab ? (DRAWER_TABS.indexOf(drawerTab) > DRAWER_TABS.indexOf(prevTab) ? 'from-right' : 'from-left') : '';
+    const box = $('#nd-drawer-list');
+    box.classList.remove('from-right', 'from-left');
+    if (slide) { void box.offsetWidth; box.classList.add(slide); }
+    const foot = $('#nd-drawer-foot');
+    foot.hidden = true; foot.innerHTML = '';
+    box.innerHTML = '<div class="nd-empty"><span class="nd-spin"></span></div>';
+    try {
+      if (drawerTab === 'history') {
+        const h = await api('history');
+        const offNote = S.settings.record_history === false ? '<div class="nd-empty" style="padding:12px 10px">방문 기록 남기기가 꺼져 있습니다. 설정에서 다시 켤 수 있습니다.</div>' : '';
+        if (!h.length) { box.innerHTML = offNote || '<div class="nd-empty" style="padding:20px">아직 읽은 문서가 없습니다.</div>'; return; }
+        let last = '';
+        let html = offNote;
+        h.forEach((x) => {
+          const d = new Date(x.visited_at * 1000);
+          const key = d.toDateString();
+          if (key !== last) { last = key; html += `<div class="nd-daysep">${dayLabel(d)}</div>`; }
+          html += `<div class="nd-li"><a href="${docUrl(x.title)}" data-title="${esc(x.title)}" title="${esc(x.title)}">${esc(x.title)}</a><small>${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}</small></div>`;
+        });
+        box.innerHTML = html;
+        foot.innerHTML = `<span class="cnt">${h.length}개</span><button class="nd-btn" id="nd-clear-h">${I.trash}기록 지우기</button>`;
+        foot.hidden = false;
+        // 되돌릴 수 없으므로 한 번 더 눌러야 지운다(목록 끝을 굴리다 잘못 눌러 지워지는 일이 있었다)
+        const clr = $('#nd-clear-h');
+        let armT = null;
+        clr.onclick = async () => {
+          if (!clr.classList.contains('armed')) {
+            clr.classList.add('armed');
+            clr.innerHTML = `${I.trash}한 번 더 누르면 모두 지웁니다`;
+            armT = setTimeout(() => { clr.classList.remove('armed'); clr.innerHTML = `${I.trash}기록 지우기`; }, 3000);
+            return;
+          }
+          clearTimeout(armT);
+          await api('history', { clear: true });
+          openDrawer('history');
+          if (location.pathname === '/') refreshHomeLists();
+          toast('기록을 지웠습니다.');
+        };
+      } else {
+        const b = await api('bookmarks');
+        S.bookmarks = new Set(b.map((x) => x.title));
+        if (!b.length) { box.innerHTML = '<div class="nd-empty" style="padding:20px">즐겨찾기한 문서가 없습니다. 문서를 열고 별 단추를 누르세요.</div>'; return; }
+        box.innerHTML = b.map((x) => `<div class="nd-li"><a href="${docUrl(x.title)}" data-title="${esc(x.title)}" title="${esc(x.title)}">${esc(x.title)}</a><button class="nd-ib nd-sm" data-unbm="${esc(x.title)}" title="빼기">${I.close}</button></div>`).join('');
+      }
+    } catch (e) { box.innerHTML = `<div class="nd-empty">${esc(e.message)}</div>`; }
+  }
+  function dayLabel(d) {
+    const today = new Date(); const y = new Date(Date.now() - 86400000);
+    if (d.toDateString() === today.toDateString()) return '오늘';
+    if (d.toDateString() === y.toDateString()) return '어제';
+    return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+  }
+  // 닫을 때도 열 때처럼 오른쪽으로 미끄러지며 사라진다
+  function closeDrawer() {
+    const drawer = $('#nd-drawer'), scrim = $('#nd-scrim');
+    if (drawer.hidden || drawer.classList.contains('closing')) return;
+    drawer.classList.add('closing'); scrim.classList.add('closing');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    drawerCloseT = setTimeout(() => {
+      drawer.hidden = true; scrim.hidden = true;
+      drawer.classList.remove('closing'); scrim.classList.remove('closing');
+    }, reduce ? 0 : ANIM_OUT);
+  }
+
+  // ── 설정 ────────────────────────────────────────────────
+  function seg(name, opts, cur) {
+    return `<div class="nd-seg" data-set="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  }
+  function sw(name, on) { return `<label class="nd-switch"><input type="checkbox" data-sw="${name}" ${on ? 'checked' : ''}><span></span></label>`; }
+  function openSettings() {
+    const s = S.settings, st = S.status || {}, m = st.meta || {};
+    $('#nd-modal-b').innerHTML = `
+      <div class="nd-row"><div class="l">화면 모드<small>시스템은 운영체제의 라이트, 다크 설정을 따릅니다</small></div>${seg('theme', [['system', '시스템'], ['light', '라이트'], ['dark', '다크']], s.theme || 'system')}</div>
+      <div class="nd-row"><div class="l">글꼴<small>기본은 앱에 들어 있는 Pretendard입니다</small></div><select class="nd-select" id="nd-font">${fontOptions(s.font || 'pretendard', [])}</select></div>
+      <div class="nd-row"><div class="l">글자 크기<small id="nd-fs-v">${s.font_size || 15}px</small></div><input type="range" min="13" max="22" step="1" value="${s.font_size || 15}" id="nd-fs"></div>
+      <div class="nd-row"><div class="l">본문 너비</div>${seg('width', [['narrow', '좁게'], ['normal', '보통'], ['wide', '넓게']], s.width || 'normal')}</div>
+      <div class="nd-row"><div class="l">옆 목차<small>넓은 창에서 오른쪽에 목차를 띄웁니다</small></div>${sw('toc_sidebar', s.toc_sidebar !== false)}</div>
+      <div class="nd-row"><div class="l">방문 기록 남기기<small>끄면 읽은 문서를 기록하지 않습니다. 이미 남은 기록은 목록에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
+      <div class="nd-row"><div class="l">없는 문서 링크 표시<small>덤프에 없는 문서로 가는 링크를 빨갛게 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
+      <div class="nd-sub-h">덤프 파일</div>
+      <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '없음')}</code><br>${st.doc_count ? fmtNum(st.doc_count) + '개 문서' : ''}${m.generated_at_iso ? ', 생성 ' + esc(m.generated_at_iso.replace('T', ' ')) : ''}</div><button class="nd-btn" id="nd-change-db">${I.folder}다른 파일</button></div>
+      <div class="nd-sub-h">정보</div>
+      <div class="nd-kv nd-about-kv">
+        <b>나무덤프 ${esc(st.version || '')}</b><br>나무위키 덤프를 인터넷 없이 읽는 프로그램입니다.<br>
+        © 2026 ${esc(st.author || '')}. 코드는 MIT 라이선스로 공개되어 있습니다.${st.homepage ? `<br><a class="nd-ext-plain" href="${esc(st.homepage)}" target="_blank" rel="noopener">${esc(st.homepage.replace(/^https?:\/\//, ''))}</a>` : ''}<br><br>
+        문서 출처 ${esc(m.source || 'https://namu.wiki')}, 작성 ${esc(m.attribution || '나무위키 기여자')}.<br>
+        문서 내용은 ${esc(m.license || 'CC BY-NC-SA 2.0 KR')}에 따라 비영리 목적으로만 이용할 수 있습니다.<br>
+        Electron(MIT), 수식 표시에 KaTeX(MIT), 글꼴 Pretendard(SIL OFL 1.1)를 씁니다. 나무위키와 관계없는 비공식 프로그램입니다.</div>
+      ${S.native ? '' : `<div style="margin-top:18px;text-align:right"><button class="nd-btn" id="nd-quit">나무덤프 종료</button></div>`}`;
+    showModal();
+    $$('#nd-modal-b .nd-seg').forEach((g) => g.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      $$('button', g).forEach((x) => x.classList.toggle('on', x === b));
+      saveSettings({ [g.dataset.set]: b.dataset.v });
+    }));
+    $('#nd-fs').oninput = (e) => { $('#nd-fs-v').textContent = e.target.value + 'px'; S.settings.font_size = +e.target.value; applyLayout(); };
+    $('#nd-fs').onchange = (e) => saveSettings({ font_size: +e.target.value });
+    $$('#nd-modal-b [data-sw]').forEach((c) => c.onchange = () => {
+      saveSettings({ [c.dataset.sw]: c.checked });
+      if (c.dataset.sw === 'toc_sidebar' && S.doc) $('#nd-side').hidden = !c.checked || !$('#nd-side-toc').children.length || !location.pathname.startsWith('/w/');
+      if (c.dataset.sw === 'record_history' && location.pathname === '/') refreshHomeLists();
+      if (c.dataset.sw === 'link_check') { if (location.pathname.startsWith('/w/')) route(); }
+    });
+    $('#nd-change-db').onclick = pickDump;
+    const fsel = $('#nd-font');
+    fsel.onchange = () => saveSettings({ font: fsel.value });
+    // 설치된 글꼴 목록은 운영체제에 물어 채운다(Local Font Access). 못 받으면 기본 선택지만 둔다
+    listLocalFonts().then((names) => {
+      if (names.length && fsel.isConnected) fsel.innerHTML = fontOptions(S.settings.font || 'pretendard', names);
+    });
+    const q = $('#nd-quit'); if (q) q.onclick = async () => { try { await api('quit', {}); } catch (e) { /* 무시 */ } document.body.innerHTML = '<div style="padding:60px;text-align:center;font:16px var(--nd-font)">나무덤프를 종료했습니다. 이 창을 닫아도 됩니다.</div>'; };
+  }
+  function fontOptions(cur, names) {
+    const opt = (v, label) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`;
+    const list = names.slice();
+    if (cur && cur !== 'pretendard' && cur !== 'system' && !list.includes(cur)) list.unshift(cur);
+    return opt('pretendard', 'Pretendard (기본)') + opt('system', '시스템 글꼴') +
+      (list.length ? `<optgroup label="설치된 글꼴">${list.map((n) => opt(n, n)).join('')}</optgroup>` : '');
+  }
+  let localFonts = null;
+  async function listLocalFonts() {
+    if (localFonts) return localFonts;
+    try {
+      const fonts = await window.queryLocalFonts();
+      localFonts = [...new Set(fonts.map((f) => f.family))].filter((n) => n && !n.startsWith('.')).sort((a, b) => a.localeCompare(b, 'ko'));
+    } catch (e) { localFonts = []; }
+    return localFonts;
+  }
+  // 설정 창: 열 때 살짝 커지며 나타나고, 닫을 때는 반대로 살짝 작아지며 사라진다
+  let modalCloseT = null;
+  function showModal() {
+    const m = $('#nd-modal');
+    clearTimeout(modalCloseT);
+    m.classList.remove('closing');
+    m.hidden = false;
+    $('#nd-modal-sc').scrollTop = 0; $('.nd-modal-card').classList.remove('scrolled');
+  }
+  function closeModal() {
+    const m = $('#nd-modal');
+    if (m.hidden || m.classList.contains('closing')) return;
+    m.classList.add('closing');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    modalCloseT = setTimeout(() => { m.hidden = true; m.classList.remove('closing'); }, reduce ? 0 : ANIM_OUT);
+  }
+
   // ── 문서 안에서 찾기 ────────────────────────────────────
   let findHits = [], findIdx = -1;
   function openFind() {
@@ -938,6 +1496,9 @@
   // ── 전역 이벤트 ─────────────────────────────────────────
   document.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0) return;
+    if (e.target.closest('.nd-brand') && document.getElementById('nd-topbar').classList.contains('show-doc')) {
+      e.preventDefault(); quickScrollTo(0); return;
+    }
     const toggle = e.target.closest('[data-toc-toggle]');
     if (toggle) { const t = toggle.closest('.nd-toc'); t.classList.toggle('closed'); toggle.textContent = t.classList.contains('closed') ? '펼치기' : '접기'; return; }
     const a = e.target.closest('a');
@@ -952,7 +1513,7 @@
     if (a.classList.contains('nd-fnref')) { e.preventDefault(); closePop(); scrollToAnchor(a.dataset.fn, true); return; }
     const href = a.getAttribute('href') || '';
     if (a.target === '_blank' || /^https?:/i.test(href)) {
-      e.preventDefault(); openExternal(a.href);
+      if (S.native) { e.preventDefault(); openExternal(a.href); }
       return;
     }
     if (href.startsWith('#')) {
@@ -965,14 +1526,15 @@
     }
     if (a.dataset.title !== undefined) {
       e.preventDefault();
+      closeDrawer();
       const t = a.dataset.title, hash = a.dataset.hash || '';
-      if (S.doc && t === S.doc.title && location.pathname.startsWith('/w/')) { if (hash) scrollToAnchor(hash, true); else SCR().scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      if (S.doc && t === S.doc.title && location.pathname.startsWith('/w/')) { if (hash) scrollToAnchor(hash, true); else quickScrollTo(0); return; }
       if (e.metaKey || e.ctrlKey) { window.open(docUrl(t, hash), '_blank'); return; }
       openDoc(t, hash);
       return;
     }
     if (a.hasAttribute('data-route') || (href.startsWith('/') && !href.startsWith('//'))) {
-      e.preventDefault(); go(href);
+      e.preventDefault(); closeDrawer(); go(href);
     }
   });
   document.addEventListener('mouseover', (e) => {
@@ -986,29 +1548,52 @@
     if (popFor && !popPinned) closePop();
   }, { passive: true });
 
-  // ⌘ 단축키는 앱의 메뉴가 맡는다(window.ND를 부른다)
   document.addEventListener('keydown', (e) => {
+    const mod = e.metaKey || e.ctrlKey;
     const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
     if (e.key === 'Escape') {
       // 처리했다고 알려야(preventDefault) 맥이 경고음을 내지 않는다
+      if (!$('#nd-modal').hidden) { e.preventDefault(); closeModal(); return; }
+      if (!$('#nd-drawer').hidden) { e.preventDefault(); closeDrawer(); return; }
       if (!$('#nd-find').hidden) { e.preventDefault(); closeFind(); return; }
       if (popFor) { e.preventDefault(); closePop(); return; }
     }
-    if (!e.metaKey && !e.ctrlKey && !inField && e.key === '/') { e.preventDefault(); host('focusSearch'); return; }
-    if (e.altKey && !e.metaKey && e.key === 'ArrowLeft') { e.preventDefault(); history.back(); }
-    if (e.altKey && !e.metaKey && e.key === 'ArrowRight') { e.preventDefault(); history.forward(); }
+    if (mod && (e.key === 'k' || e.key === 'l')) { e.preventDefault(); const q = $('#nd-bigq') || $('#nd-q'); q.focus(); q.select(); return; }
+    if (mod && e.key === 'f') { e.preventDefault(); openFind(); return; }
+    if (mod && e.key === '[') { e.preventDefault(); history.back(); return; }
+    if (mod && e.key === ']') { e.preventDefault(); history.forward(); return; }
+    if (mod && e.key === 'r' && !e.shiftKey) { e.preventDefault(); randomDoc(); return; }
+    if (mod && e.key === 'd') { e.preventDefault(); if (location.pathname.startsWith('/w/')) toggleBookmark(); return; }
+    if (mod && e.key === 'y') { e.preventDefault(); openDrawer('history'); return; }
+    if (mod && e.shiftKey && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); go('/'); return; }
+    if (mod && e.key === ',') { e.preventDefault(); openSettings(); return; }
+    if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); saveSettings({ font_size: Math.min(24, (S.settings.font_size || 15) + 1) }); return; }
+    if (mod && e.key === '-') { e.preventDefault(); saveSettings({ font_size: Math.max(12, (S.settings.font_size || 15) - 1) }); return; }
+    if (mod && e.key === '0') { e.preventDefault(); saveSettings({ font_size: 15 }); return; }
+    if (!mod && !inField && e.key === '/') { e.preventDefault(); const q = $('#nd-bigq') || $('#nd-q'); q.focus(); return; }
+    if (!mod && e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); history.back(); }
+    if (!mod && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); history.forward(); }
   });
 
-  // 일반 마우스 휠을 크롬처럼 부드럽게 굴린다. 앱이 칸 단위로 움직이는
-  // 휠 입력만 골라 여기로 넘긴다(트랙패드와 매직 마우스는 원래대로 둔다).
-  // 굴리는 도중에 또 굴리면 남은 거리에 더해서 이어 간다.
-  const WHEEL_MS = 220;
-  const WHEEL_WALL = '#nd-pop';
-  const wheelAnims = new Map();
+  // 패널 안에서 굴린 스크롤이 끝에 닿아도 뒤 문서로 넘어가지 않게 한다.
+  // 패널 바깥(어두운 배경)에서 굴리면 뒤 문서가 평소처럼 움직인다.
+  function containWheel(panel, scroller) {
+    panel.addEventListener('wheel', (e) => {
+      const sc = scroller && scroller.contains(e.target) ? scroller : null;
+      if (!sc) { e.preventDefault(); return; }
+      const dy = e.deltaY;
+      if (dy === 0) return;
+      const atTop = sc.scrollTop <= 0;
+      const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+      if ((dy < 0 && atTop) || (dy > 0 && atBottom)) e.preventDefault();
+    }, { passive: false });
+  }
+
+  // 손가락 아래에서 좌우로 더 굴릴 수 있는 영역(넓은 표 등)을 찾는다. 쓸기를 시작할지 판단할 때 쓴다
+  const WHEEL_WALL = '#nd-drawer, .nd-modal-card, #nd-pop';
   function wheelRoom(el, dx, dy) {
     const cs = getComputedStyle(el);
-    const a = wheelAnims.get(el);
-    const y = a ? a.ty : el.scrollTop, x = a ? a.tx : el.scrollLeft;
+    const y = el.scrollTop, x = el.scrollLeft;
     const canY = dy !== 0 && /(auto|scroll|overlay)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1 &&
       (dy < 0 ? y > 0 : y < el.scrollHeight - el.clientHeight - 1);
     const canX = dx !== 0 && /(auto|scroll|overlay)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1 &&
@@ -1024,31 +1609,101 @@
     }
     return page;
   }
-  function wheelStep(now) {
-    wheelAnims.forEach((a, el) => {
-      const t = Math.min(1, (now - a.t0) / WHEEL_MS);
-      const k = 1 - Math.pow(1 - t, 3);
-      el.scrollTo({ left: a.x0 + (a.tx - a.x0) * k, top: a.y0 + (a.ty - a.y0) * k, behavior: 'instant' });
-      if (t >= 1) wheelAnims.delete(el);
-    });
-    if (wheelAnims.size) requestAnimationFrame(wheelStep);
+
+  // ── 문서 스크롤 막대(직접 그림) ─────────────────────────
+  // WebKit의 문서 스크롤 막대는 창 맨 위, 상단 막대 뒤에서부터 그려져서 숨기고(app.css), 상단 막대 아래부터 직접 그린다.
+  // 맥처럼 굴릴 때만 나타났다 사라지고, 막대를 끌거나 빈 곳을 눌러 옮길 수 있다. 튕길 때는 제자리에 있다.
+  const SBAR = { el: null, thumb: null, hideT: null, drag: null, h: 0, track: 0 };
+  function sbLayout() {
+    const sc = SCR(), max = sc.scrollHeight - sc.clientHeight;
+    SBAR.track = window.innerHeight - topBarH();
+    if (max <= 0) { SBAR.el.hidden = true; return max; }
+    SBAR.el.hidden = false;
+    SBAR.h = Math.max(36, SBAR.track * sc.clientHeight / sc.scrollHeight);
+    const y = (SBAR.track - SBAR.h) * Math.min(1, Math.max(0, sc.scrollTop / max));
+    SBAR.thumb.style.height = SBAR.h + 'px';
+    SBAR.thumb.style.transform = `translateY(${y.toFixed(1)}px)`;
+    return max;
   }
-  window.ND_wheel = (dx, dy, x, y) => {
-    const el = wheelTarget(x, y, dx, dy);
-    if (!el) return;
-    const a = wheelAnims.get(el);
-    const maxX = el.scrollWidth - el.clientWidth, maxY = el.scrollHeight - el.clientHeight;
-    const tx = Math.max(0, Math.min(maxX, (a ? a.tx : el.scrollLeft) + dx));
-    const ty = Math.max(0, Math.min(maxY, (a ? a.ty : el.scrollTop) + dy));
-    if (!wheelAnims.size) requestAnimationFrame(wheelStep);
-    wheelAnims.set(el, { x0: el.scrollLeft, y0: el.scrollTop, tx, ty, t0: performance.now() });
-  };
+  function sbShow() {
+    if (sbLayout() <= 0) return;
+    SBAR.el.classList.add('on');
+    clearTimeout(SBAR.hideT);
+    SBAR.hideT = setTimeout(() => { if (!SBAR.drag && !SBAR.el.matches(':hover')) SBAR.el.classList.remove('on'); }, 1000);
+  }
+  function initScrollbar() {
+    const el = document.createElement('div');
+    el.className = 'nd-sbar'; el.hidden = true; el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = '<div class="nd-sbar-thumb"></div>';
+    document.body.appendChild(el);
+    SBAR.el = el; SBAR.thumb = el.firstChild;
+    let raf = 0;
+    window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; sbShow(); }); }, { passive: true });
+    window.addEventListener('resize', () => sbLayout());
+    new ResizeObserver(() => sbLayout()).observe($('#nd-main'));
+    el.addEventListener('mouseleave', () => { if (!SBAR.drag) sbShow(); });
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const sc = SCR(), max = sc.scrollHeight - sc.clientHeight;
+      if (e.target !== SBAR.thumb) {         // 빈 곳을 누르면 그 자리로 막대 가운데를 옮긴다
+        const want = e.clientY - el.getBoundingClientRect().top - SBAR.h / 2;
+        sc.scrollTop = max * Math.min(1, Math.max(0, want / (SBAR.track - SBAR.h)));
+      }
+      SBAR.drag = { y: e.clientY, top: sc.scrollTop, max };
+      el.setPointerCapture(e.pointerId); el.classList.add('drag');
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!SBAR.drag) return;
+      const d = SBAR.drag, room = SBAR.track - SBAR.h;
+      if (room > 0) SCR().scrollTop = d.top + (e.clientY - d.y) * d.max / room;
+    });
+    const end = () => { if (!SBAR.drag) return; SBAR.drag = null; el.classList.remove('drag'); sbShow(); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  }
 
   function initChrome() {
+    $('#nd-back').innerHTML = I.back; $('#nd-fwd').innerHTML = I.fwd; $('#nd-home').innerHTML = I.home;
+    $('#nd-home').onclick = () => { if (location.pathname !== '/') go('/'); else quickScrollTo(0); };
+    containWheel($('#nd-drawer'), $('#nd-drawer-b'));
+    containWheel($('.nd-modal-card'), $('#nd-modal-sc'));
+    // 설정 내용이 제목 아래로 굴러 들어가면 제목 밑에 구분선을 보인다
+    $('#nd-modal-sc').addEventListener('scroll', (e) => $('.nd-modal-card').classList.toggle('scrolled', e.target.scrollTop > 0), { passive: true });
+    initScrollbar();
+    $('.nd-search-ic').innerHTML = I.search;
+    $('#nd-random').innerHTML = I.shuffle; $('#nd-star').innerHTML = I.star;
+    $('#nd-lists').innerHTML = I.list; $('#nd-settings').innerHTML = I.gear;
     $('#nd-totop').innerHTML = I.up;
-    $('#nd-find-close').innerHTML = I.close;
+    $$('#nd-drawer-close, #nd-modal-close, #nd-find-close').forEach((b) => { b.innerHTML = I.close; });
     $('#nd-find-prev').innerHTML = I.up; $('#nd-find-next').innerHTML = I.down;
-    $('#nd-totop').onclick = () => SCR().scrollTo({ top: 0, behavior: 'smooth' });
+    $('#nd-q-kbd').textContent = IS_MAC ? '⌘K' : 'Ctrl K';
+    // 맥이 아니면 단추 설명의 단축키를 Ctrl로 적는다
+    if (!IS_MAC) $$('[title*="⌘"]').forEach((el) => { el.title = keyLabel(el.title); });
+    $('#nd-back').onclick = () => history.back();
+    $('#nd-fwd').onclick = () => history.forward();
+    $('#nd-random').onclick = randomDoc;
+    $('#nd-star').onclick = toggleBookmark;
+    $('#nd-lists').onclick = () => openDrawer();
+    $('#nd-settings').onclick = openSettings;
+    $('#nd-theme').onclick = () => {
+      const next = { system: 'light', light: 'dark', dark: 'system' }[S.settings.theme || 'system'];
+      saveSettings({ theme: next });
+      toast('화면 모드: ' + THEME_NAME[next]);
+    };
+    $('#nd-totop').onclick = () => quickScrollTo(0);
+    $('#nd-scrim').onclick = closeDrawer;
+    $('#nd-drawer-close').onclick = closeDrawer;
+    $('#nd-drawer-tabs').onclick = (e) => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.tab); };
+    $('#nd-drawer-b').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-unbm]'); if (!b) return;
+      await api('bookmark', { title: b.dataset.unbm, on: false });
+      S.bookmarks.delete(b.dataset.unbm);
+      if (S.doc && S.doc.title === b.dataset.unbm) updateStar(false);
+      openDrawer('bookmarks');
+      if (location.pathname === '/') refreshHomeLists();
+    });
+    $('#nd-modal-close').onclick = closeModal;
+    $('#nd-modal').addEventListener('mousedown', (e) => { if (e.target.id === 'nd-modal') closeModal(); });
+    attachSuggest($('#nd-q'), $('#nd-sugg'));
     let ft = null;
     $('#nd-find-q').addEventListener('input', (e) => { clearTimeout(ft); ft = setTimeout(() => runFind(e.target.value.trim()), 160); });
     $('#nd-find-q').addEventListener('keydown', (e) => {
@@ -1072,31 +1727,9 @@
       return;
     }
     history.scrollRestoration = 'manual';
-    history.replaceState(Object.assign({ y: 0, key: newKey() }, history.state || {}), '');
+    history.replaceState(Object.assign({ y: 0, idx: 0, key: newKey() }, history.state || {}), '');
+    navKeys[navIdx()] = history.state.key;
     route(false);
   }
-  // 앱의 메뉴, 도구 막대, 사이드바가 부른다
-  window.ND = {
-    back: () => history.back(),
-    forward: () => history.forward(),
-    home: () => { if (location.pathname !== '/') go('/'); else SCR().scrollTo({ top: 0, behavior: 'smooth' }); },
-    random: randomDoc,
-    toggleStar: () => { if (location.pathname.startsWith('/w/')) toggleBookmark(); },
-    search: (q) => goSearch(q),
-    open: (title, hash) => openDoc(title, hash || ''),
-    anchor: (id) => scrollToAnchor(id, true),
-    find: openFind,
-    searchSelection: () => window.ND_searchSelection(),
-    settings: (s) => {
-      const relink = s.link_check !== S.settings.link_check, recent = s.record_history !== S.settings.record_history;
-      S.settings = s; applyLayout(); applyTheme();
-      if (relink && location.pathname.startsWith('/w/')) route();
-      if (recent && location.pathname === '/') refreshHomeLists();
-    },
-    fontSize: (delta) => saveSettings({ font_size: delta === 0 ? 15 : Math.max(12, Math.min(24, (S.settings.font_size || 15) + delta)) }).then(() => host('settings')),
-    reload: async () => { await refreshStatus(); go('/', { replace: true }); },
-    lists: () => { if (location.pathname === '/') refreshHomeLists(); },
-    unbookmarked: (t) => { S.bookmarks.delete(t); if (S.doc && S.doc.title === t && location.pathname.startsWith('/w/')) updateStar(false); },
-  };
   boot();
 })();

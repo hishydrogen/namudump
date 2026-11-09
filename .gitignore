@@ -8,3 +8,5 @@ __pycache__/
 /나무덤프/
 build/.venv/
 .build/
+node_modules/
+native/*/build/

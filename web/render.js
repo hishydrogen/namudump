@@ -1,6 +1,9 @@
-/* 문서 HTML을 안전하고 깔끔한 문서 DOM으로 바꾼다.
+/* 나무위키 덤프의 HTML을 안전하고 깔끔한 문서 DOM으로 바꾼다.
  *
- * 본문, 문단 제목, 표, 각주, 이미지, 접기 요소를 정리하고,
+ * 덤프의 HTML은 나무위키 웹페이지 전체이며, 크롤링 방지용 가짜 요소와
+ * 무작위로 바뀌는 클래스 이름이 섞여 있다. 여기서는 클래스 이름 대신
+ * 구조를 보고 본문, 문단 제목, 표, 각주, 이미지, 접기를 찾아낸다.
+ * DOMParser로 만든 문서는 스크립트가 실행되지 않으며, 최종 결과는
  * 허용 목록에 있는 태그와 속성만 남긴다.
  */
 (function (global) {
@@ -148,7 +151,7 @@
     raw = String(raw || '').replace(/<a\b[^>]*\bhref="\/jump\/[^"]*"[^>]*>\s*<\/a>/g, '');
     const doc = new DOMParser().parseFromString(raw, 'text/html');
 
-    // 1) 빈 요소 제거
+    // 1) 크롤링 방지용 가짜 요소 제거
     doc.querySelectorAll('div[class]').forEach((el) => {
       if (el.childElementCount === 0 && !hasDV(el) && blankText(el.textContent)) el.remove();
     });
@@ -201,8 +204,34 @@
       while (e.parentElement && e.parentElement !== B && !(mainV && e.parentElement.querySelector('[' + mainV + ']'))) e = e.parentElement;
       e.remove();
     });
+    // 6-2) 크롤링하면서 광고 링크는 모두 가짜 문단 앵커(#s-숫자)로 바뀌어 있고, 그중 하나는 광고주 주소
+    // (무보증.com, m.place.naver.com/... 등)를 글자로 가진다. 앵커 번호는 모두 같기도, 제각각이기도 하다.
+    // 그런 링크에서 시작해, 안의 링크가 모두 #s-숫자이고 문단 제목이 없는 가장 큰 상자까지 올라가 통째로 지운다.
+    // 클래스 이름은 덤프마다 달라 쓰지 않는다.
+    // 광고주 주소: 마지막 칸이 글자로 된 최상위 도메인(.com, .co.kr, .한국 등). 7.62mm 같은 글자는 빼려는 것
+    const AD_HOST = /^(https?:\/\/)?([\w가-힣-]+\.)+([a-z]{2,}|[가-힣]{2,})(\/\S*)?$/i;
+    B.querySelectorAll('a[href^="#s-"]').forEach((a) => {
+      if (!a.isConnected) return;
+      const href = a.getAttribute('href');
+      if (!/^#s-\d+$/.test(href) || !AD_HOST.test((a.textContent || '').trim())) return;
+      const onlyThis = (el) => {
+        const as = el.querySelectorAll('a');
+        if (as.length < 2 || el.querySelector('h1, h2, h3, h4, h5, h6')) return false;
+        for (const x of as) if (!/^#s-\d+$/.test(x.getAttribute('href') || '')) return false;
+        return true;
+      };
+      let box = null;
+      for (let e = a.parentElement; e && e !== B; e = e.parentElement) {
+        if (onlyThis(e)) box = e; else if (box) break;
+      }
+      if (box) box.remove();
+    });
+    // 광고 앞뒤에 남는 표식: 자기 클래스 이름을 글자로 가진 div
+    B.querySelectorAll('div[class]').forEach((el) => {
+      if (!el.childElementCount && el.textContent.trim() === el.getAttribute('class')) el.remove();
+    });
 
-    // 7) 빈 껍데기 제거
+    // 7) 빈 껍데기 제거 (가짜 id를 가진 빈 div 등)
     B.querySelectorAll('div').forEach((el) => {
       if (!el.isConnected) return;
       if (el.childElementCount === 0 && blankText(el.textContent) && !el.getAttribute('style')) el.remove();

@@ -1,0 +1,4 @@
+/* Finder, Dock, Spotlight에 보이는 이름. 앱 묶음과 실행 파일 이름은 영문(NamuDump)이어야 한다:
+   Electron 보조 앱 이름에 한글이 들어가면 macOS에서 시작하자마자 멈춘다.
+   Info.plist의 CFBundleDisplayName은 파일 이름과 같은 NamuDump로 두어야 macOS가 이 지역화 이름을 쓴다. */
+CFBundleDisplayName = "나무덤프";
