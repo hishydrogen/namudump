@@ -152,6 +152,12 @@
   position: relative; width: 100%; max-width: 640px; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; margin: .4em 0;
   background: #111 center/cover no-repeat; display: grid; place-items: center; color: #fff;
 }
+/* 썸네일이 있으면 그 위에 재생 단추를 띄운다(안내 상자는 옅게) */
+.nd-content .nd-embed.has-thumb { animation: ndthumb .25s var(--nd-ease); }
+.nd-content .nd-embed.has-thumb .ctl { background: rgba(0, 0, 0, .35); position: relative; z-index: 1; }
+.nd-content .nd-embed .nd-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s var(--nd-ease); pointer-events: none; }
+.nd-content .nd-embed.has-thumb .nd-poster { opacity: 1; }
+@keyframes ndthumb { from { background-color: #111; } }
 .nd-content .nd-embed.nd-embed-map { display: inline-flex; width: auto; max-width: none !important; aspect-ratio: auto !important; background: none; color: inherit; overflow: visible; margin: .2em 0; }
 .nd-content .nd-embed.nd-embed-map .ctl { flex-direction: row; padding: 0; gap: 6px; }
 .nd-content .nd-embed.nd-embed-map a { font-size: .95em; color: var(--nd-ext); }

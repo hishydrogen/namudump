@@ -98,7 +98,7 @@ macOS는 ⌘, Windows와 Linux는 Ctrl을 씁니다.
   - macOS: `~/Library/Application Support/NamuDump`
   - Windows: `%APPDATA%\NamuDump`
   - Linux: `~/.config/NamuDump`
-- 인터넷은 동영상을 재생하거나 외부 링크를 열 때만 씁니다. 문서를 열기만 해서는 인터넷에 접속하지 않습니다.
+- 인터넷은 유튜브 동영상의 썸네일을 보이거나, 동영상을 재생하거나, 외부 링크를 열 때만 씁니다. 썸네일은 동영상이 있는 부분을 볼 때만 유튜브(`i.ytimg.com`)에서 받고, 인터넷이 없으면 검은 바탕으로 둡니다. 그 밖의 외부 그림은 받지 않습니다.
 
 ## 업데이트와 삭제
 

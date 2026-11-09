@@ -930,9 +930,42 @@
   window.addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => fitEmbeds(), 150); });
   document.addEventListener('toggle', (e) => { if (e.target.tagName === 'DETAILS' && e.target.open) fitEmbeds(); }, true);
 
+  // 유튜브 썸네일: 틀이 화면 가까이 왔을 때만 불러온다(동영상이 많은 문서에서 한꺼번에 받지 않게).
+  // 고화질(maxresdefault)이 없으면 유튜브는 120px짜리 빈 그림을 주므로 그때는 hqdefault로 내려간다.
+  // 인터넷이 없거나 받지 못하면 검은 바탕 그대로 둔다.
+  function loadThumb(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.onload = () => resolve(img.naturalWidth > 120 ? url : null);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+  const thumbObs = 'IntersectionObserver' in window ? new IntersectionObserver((ents) => {
+    ents.forEach(async (en) => {
+      if (!en.isIntersecting) return;
+      const b = en.target;
+      thumbObs.unobserve(b);
+      // 동영상 파일을 직접 건 틀: 첫 장면만 불러와 썸네일처럼 깐다(재생 단추를 누르면 실제 재생기로 바뀐다)
+      if (b.dataset.video) {
+        const v = document.createElement('video');
+        v.className = 'nd-poster'; v.muted = true; v.preload = 'metadata'; v.playsInline = true; v.setAttribute('aria-hidden', 'true');
+        v.addEventListener('loadeddata', () => { if (b.isConnected && !b.querySelector('video[controls]')) b.classList.add('has-thumb'); }, { once: true });
+        v.addEventListener('error', () => v.remove(), { once: true });
+        v.src = b.dataset.video.replace(/#.*$/, '') + '#t=0.1';
+        b.prepend(v);
+        return;
+      }
+      const id = b.dataset.yt;
+      const url = await loadThumb(`https://i.ytimg.com/vi/${id}/maxresdefault.jpg`) || await loadThumb(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`);
+      if (url && b.isConnected && !b.querySelector('iframe')) { b.style.backgroundImage = `url("${url}")`; b.classList.add('has-thumb'); }
+    });
+  }, { rootMargin: '600px 0px' }) : null;
   function setupEmbeds(root) {
     root.querySelectorAll('.nd-embed').forEach((b) => {
       const link = b.dataset.link, kind = b.dataset.kind || '외부 콘텐츠';
+      if (thumbObs && ((b.dataset.yt && /^[\w-]{6,}$/.test(b.dataset.yt)) || /^https?:\/\//.test(b.dataset.video || ''))) thumbObs.observe(b);
       if (b.dataset.embed) {
         b.innerHTML = `<div class="ctl"><button class="play" type="button" aria-label="재생">${I.play}</button><span>${esc(kind)} (인터넷 필요)</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
         b.querySelector('.play').onclick = () => {

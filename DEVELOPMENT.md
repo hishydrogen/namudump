@@ -96,7 +96,8 @@ npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -arm64.App
 | 메인 → 화면 | 메뉴 명령은 `ND_command`, 전체 화면은 `ND_setFullscreen`, 오른쪽 클릭 검색은 `ND_searchSelection`, 맥 쓸기 입력은 `ndNative.onInput` |
 
 - API: GET `status`, `settings`, `doc?title=`, `suggest?q=`, `search?q=&mode=prefix|contains`, `random`, `history`, `bookmarks`. POST `settings`, `open`, `bookmark`, `history`, `exists`.
-- 화면에는 CSP를 겁니다(`web.js`). 화면 파일은 `web/` 밖으로 나갈 수 없습니다. 외부 그림은 CSP로 막습니다.
+- 화면에는 CSP를 겁니다(`web.js`). 화면 파일은 `web/` 밖으로 나갈 수 없습니다. 외부 그림은 유튜브 썸네일(`i.ytimg.com`)만 받습니다.
+- **유튜브 썸네일**: 틀이 화면 가까이(600px) 왔을 때만 `maxresdefault`를, 없으면(유튜브가 120px 빈 그림을 줌) `hqdefault`를 받습니다(`app.js`의 `loadThumb`). 받지 못하면 검은 바탕 그대로 둡니다.
 - 외부 링크는 `http`, `https`, `mailto` 주소만 기본 브라우저로 엽니다. 창 안에서 다른 사이트로 가려는 이동은 막습니다.
 - **동영상**: `namudump://`에서는 Referer가 가지 않아 유튜브가 재생을 거부합니다(오류 153). 유튜브 안내대로 플레이어 요청에만 앱 식별자(`https://com.hishydrogen.namudump/`)를 Referer로 붙입니다.
 - **허용하는 권한**: 전체 화면(동영상), 복사, 설치된 글꼴 목록(설정의 글꼴 고르기). 내려받기는 막습니다.

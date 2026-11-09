@@ -98,13 +98,14 @@ test('덤프가 아닌 파일은 열지 않는다', () => {
   assert.match(other.dumpError, /SQLite|덤프/);
 });
 
-test('화면 주소는 index.html이 그리고, CSP로 외부 그림을 막는다', async () => {
+test('화면 주소는 index.html이 그리고, CSP로 유튜브 썸네일 말고는 외부 그림을 막는다', async () => {
   assert.ok(isAppRoute('/w/나무') && isAppRoute('/') && isAppRoute('/search'));
   const r = await staticResponse(WEB, 'index.html');
   assert.equal(r.status, 200);
   assert.match(await r.text(), /render\.js/);
   const img = r.headers.get('Content-Security-Policy').split(';').find((x) => x.trim().startsWith('img-src'));
-  assert.doesNotMatch(img, /http/);
+  const hosts = img.trim().split(/\s+/).slice(1).filter((s) => /^https?:/.test(s));
+  assert.deepEqual(hosts, ['https://i.ytimg.com']);
   assert.equal(r.headers.get('Content-Security-Policy'), CSP);
 });
 

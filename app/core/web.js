@@ -8,8 +8,8 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.txt': 'text/plain; charset=utf-8',
 };
-// 문서를 열기만 해서는 인터넷에 접속하지 않는다(외부 그림 금지). 동영상 틀만 누르면 https로 연다.
-const CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; " +
+// 외부 그림은 유튜브 썸네일(i.ytimg.com)만 받는다. 동영상 틀은 누르면 https로 연다.
+const CSP = "default-src 'self'; img-src 'self' data: https://i.ytimg.com; style-src 'self' 'unsafe-inline'; " +
   "font-src 'self' data:; script-src 'self'; connect-src 'self'; frame-src https:; media-src https: http:; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'";
 const BASE_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
