@@ -24,7 +24,7 @@ class App {
     try {
       d = new Dump(p);
     } catch (e) {
-      this.dumpError = e instanceof DumpError ? e.message : '덤프를 열지 못했습니다: ' + e.message;
+      this.dumpError = e instanceof DumpError ? e.message : '덤프 파일을 열지 못했습니다: ' + e.message;
       return false;
     }
     if (this.dump) this.dump.close();
@@ -47,9 +47,11 @@ class App {
       settings: s,
       version: this.info.version,
       author: this.info.author,
+      copyright: this.info.copyright,
       homepage: this.info.homepage,
       native: true,
       platform: this.info.platform,
+      arch: this.info.arch,
     };
   }
 
@@ -58,7 +60,7 @@ class App {
     try {
       return method === 'POST' ? this.post(ep, body && typeof body === 'object' ? body : {}) : this.get(ep, q || {});
     } catch (e) {
-      return { status: 500, data: { error: '서버 오류: ' + e.message } };
+      return { status: 500, data: { error: '요청을 처리하는 중 오류가 발생했습니다: ' + e.message } };
     }
   }
 
@@ -70,7 +72,7 @@ class App {
     if (ep === 'bookmarks') return ok(store.bookmarks());
     if (ep === 'history') return ok(store.history());
     const d = this.dump;
-    if (!d) return { status: 409, data: { error: '덤프 파일이 열려 있지 않습니다.', need_dump: true } };
+    if (!d) return { status: 409, data: { error: '열려 있는 덤프 파일이 없습니다.', need_dump: true } };
     const str = (k) => String(q[k] == null ? '' : q[k]);
     const int = (k, def) => { const n = parseInt(q[k], 10); return Number.isFinite(n) ? n : def; };
     if (ep === 'doc') {

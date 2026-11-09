@@ -1,121 +1,111 @@
 # 나무덤프 개발 안내
 
-나무덤프를 고치거나 직접 빌드하려는 분을 위한 문서입니다. 쓰는 법은 [README](README.md)를 보세요.
+나무덤프의 코드를 수정하거나 직접 빌드하려는 분을 위한 기술 문서입니다. 프로그램 사용법은 [README.md](README.md)를 참고해 주세요.
 
 ## 구조
 
-나무덤프는 Electron 앱이며 세 부분으로 이루어져 있습니다.
+나무덤프는 Electron 기반 애플리케이션으로, 크게 세 부분으로 이루어져 있습니다.
 
-1. **메인 프로세스**(`app/`): 창, 메뉴, `namudump://` 주소, 파일 선택과 외부 링크 같은 운영체제 기능
-2. **덤프 작업 스레드**(`app/worker.js`, `app/core/`): 덤프 읽기, 검색, 설정과 기록. 큰 문서를 풀거나 제목 목록을 읽는 동안에도 창이 멈추지 않게 따로 돕니다.
-3. **화면**(`web/`): 창 안의 단일 페이지 앱. 나무위키 문서는 임의의 CSS, 복잡한 표, 수식이라 웹 엔진으로 그립니다. 빌드 과정이나 외부 라이브러리 없이 순수 HTML, CSS, JS입니다.
+1. **메인 프로세스**(`app/main.js`, `app/preload.js`): 창 관리, 메뉴 막대, 오른쪽 클릭 메뉴, `namudump://` 커스텀 프로토콜 처리, 파일 선택 대화상자와 외부 링크 열기 같은 운영체제 연동 기능을 담당합니다.
+2. **덤프 작업 스레드**(`app/worker.js`, `app/core/`): SQLite 덤프 파일 읽기, 제목 검색, 설정 및 보관함 데이터베이스 관리를 담당합니다. 대용량 문서를 압축 해제하거나 전체 제목 목록을 검색하는 동안에도 화면이 멈추지 않도록 별도 워커 스레드에서 동작합니다.
+3. **렌더러 화면**(`web/`): 창 안에서 동작하는 단일 페이지 앱(SPA)입니다. 나무위키 문서는 문서별 인라인 CSS, 다단 표, 수식(KaTeX)을 포함하므로 웹 엔진으로 렌더링합니다. 별도의 번들러나 외부 프런트엔드 프레임워크 없이 순수 HTML, CSS, JavaScript로 작성되어 있습니다.
 
 ```
-app/main.js              창, 메뉴, 오른쪽 클릭 메뉴, namudump:// 주소, 운영체제 기능(IPC)
-app/preload.js           화면에 내보내는 통로(window.ndNative)
-app/worker.js            덤프 작업 스레드
-app/core/dump.js         덤프 읽기(node:sqlite, 읽기 전용), 제목 검색
-app/core/store.js        설정(settings.json), 방문 기록과 즐겨찾기(user.sqlite)
-app/core/api.js          /api/... 처리
-app/core/web.js          화면 파일 내주기, CSP, 외부 링크 검사
-native/mac-input/        맥 트랙패드 쓸기 입력 모듈(Objective-C, N-API)
-web/index.html           화면 뼈대
-web/app.js               라우팅(/, /w/제목, /search), 처음 화면, 검색, 각주, 문서 안 찾기, 읽던 자리, 쓸기
-web/render.js            문서 본문 렌더링과 광고 걸러 내기(window.NamuRender.render)
-web/classmap.json        글자 크기, 표 정렬 클래스 대응표
-web/app.css              화면 스타일
-web/content.css          문서 본문 스타일
+app/main.js              창 생성, 메뉴, 오른쪽 클릭 메뉴, namudump:// 프로토콜, 운영체제 연동(IPC)
+app/preload.js           렌더러에 노출하는 브리지(window.ndNative)
+app/worker.js            덤프 작업 스레드 진입점
+app/core/dump.js         덤프 파일 읽기(node:sqlite, 읽기 전용), 제목 검색 및 압축 해제
+app/core/store.js        사용자 설정(settings.json), 방문 기록과 즐겨찾기(user.sqlite)
+app/core/api.js          /api/... 요청 라우팅 및 응답 처리
+app/core/web.js          정적 화면 파일 제공, CSP 헤더, 외부 URL 검증
+native/mac-input/        macOS 트랙패드 및 매직 마우스 쓸기 입력 감지 모듈(Objective-C++, N-API)
+web/index.html           앱 화면 기본 마크업
+web/app.js               라우팅(/, /w/제목, /search), 홈 화면, 검색, 각주, 문서 내 찾기, 스크롤 복원, 쓸기 전환
+web/render.js            덤프 HTML 정제, 본문 추출, 광고 제거, 허용 태그 필터링(window.NamuRender.render)
+web/classmap.json        글자 크기 및 표 정렬 클래스 대응표
+web/app.css              앱 인터페이스 스타일
+web/content.css          나무위키 문서 본문 스타일
 web/fonts/               Pretendard 가변 글꼴(SIL OFL 1.1)
-web/katex/               수식용 KaTeX CSS와 글꼴(MIT)
-build/                   아이콘(맥 AppIcon.icon, Assets.car, AppIcon.icns, 다른 운영체제 icon-flat.svg, icon.png), .dmg 배경
-tests/                   시험(node:test)
-docs/                    README에 쓰는 그림
+web/katex/               수식 렌더링용 KaTeX CSS와 글꼴(MIT)
+build/                   아이콘 리소스(macOS용 AppIcon.icon, Assets.car, AppIcon.icns 및 플랫 아이콘), .dmg 배경
+tests/                   단위 및 통합 테스트(node:test)
+docs/                    README용 아이콘 및 스크린샷
 ```
 
-## 실행과 시험
+## 실행과 테스트
 
-Node.js 22 이상이 필요합니다. 맥에서는 `npm install`이 트랙패드 입력 모듈도 빌드하므로 Xcode 명령행 도구가 있어야 합니다.
+Node.js 22 이상이 필요합니다. macOS에서는 `npm install` 실행 시 트랙패드 입력 네이티브 모듈을 함께 컴파일하므로 Xcode 명령어 라인 도구가 설치되어 있어야 합니다.
 
 ```bash
 npm install
-npm start            # 앱 실행
-npm test             # 시험(가짜 덤프로 덤프 읽기, API, 화면 파일 응답 확인)
+npm start            # 개발 모드로 앱 실행
+npm test             # 테스트 실행(임시 SQLite 덤프로 읽기, 검색, API, CSP 검증)
 ```
 
-- `NAMUDUMP_SUPPORT=<폴더>`로 실행하면 설정과 기록을 그 폴더에 따로 저장합니다. 평소 쓰는 기록을 건드리지 않고 시험할 때 씁니다.
-- F12나 ⌥⌘I(Ctrl+Alt+I)로 개발자 도구를 엽니다. `--remote-debugging-port=<포트>`를 주면 밖에서 화면을 검사하고 스크립트를 돌릴 수 있습니다.
-- 창이 다른 창에 가려지면 크로미움이 화면 갱신을 멈춥니다. 밖에서 자동으로 시험할 때는 `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding`을 함께 줍니다.
-- 시험은 화면을 다루지 않습니다. 화면을 고쳤다면 실제 창에서 눈으로 확인합니다.
+- `NAMUDUMP_SUPPORT=<폴더 경로>` 환경 변수를 지정해 실행하면 설정과 기록을 해당 폴더에 분리해 저장합니다. 기존 사용자 데이터를 건드리지 않고 테스트할 때 유용합니다.
+- 개발 중에는 `F12` 또는 `⌥⌘I`(`Ctrl+Alt+I`)로 개발자 도구를 열 수 있습니다. `--remote-debugging-port=<포트>` 인자를 넘기면 외부에서 CDP로 화면을 검사하거나 스크립트를 실행할 수 있습니다.
+- 창이 다른 창 뒤에 가려지면 크로미움이 화면 갱신을 멈추므로, 자동화 테스트 시에는 `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding` 옵션을 함께 전달합니다.
 
-## 코드 규칙
+## 코드 작성 규칙
 
-- **의존성**: 실행에 필요한 npm 패키지는 없습니다(개발용 Electron, electron-builder, node-gyp만). SQLite는 Electron에 들어 있는 `node:sqlite`를 씁니다. 그래서 Windows, Linux에는 네이티브 모듈이 없고, 맥에만 트랙패드 입력 모듈이 있습니다.
-- **접두어**: 화면 코드의 CSS 클래스와 변수는 `nd-`로 시작합니다. 메인 프로세스가 부르는 화면 함수는 `window.ND_`로 시작합니다.
-- **주석과 문구**: 한국어로 씁니다. 화면에 보이는 문구도 한국어입니다.
-- **버전**: `package.json`의 `version` 한 곳에서 정합니다.
-- **애니메이션**: 시간과 곡선은 `app.css`의 `:root` 변수 한 곳에서 정합니다.
-- **세 운영체제**: 단축키는 ⌘과 Ctrl을 함께 받습니다(`app.js`의 `IS_MAC`, `MODK`, `keyLabel`). 경로는 `path.join`으로 만들고, 맥 전용 기능은 없을 때도 앱이 돌아가야 합니다.
-- **저장소에 넣지 않는 것**: 빌드 결과(`dist/`), `node_modules/`, 네이티브 모듈 빌드 결과(`native/*/build/`)
+- **의존성 최소화**: 런타임 npm 패키지를 두지 않습니다(개발 의존성으로만 `electron`, `electron-builder`, `node-gyp` 사용). SQLite는 Electron에 내장된 Node.js의 `node:sqlite` 모듈을 그대로 사용합니다. 덕분에 Windows와 Linux 빌드에는 네이티브 애드온이 전혀 필요하지 않으며, macOS에만 트랙패드 제스처용 N-API 모듈이 포함됩니다.
+- **네이밍 규칙**: 앱 자체 CSS 클래스와 변수는 위키 문서 스타일과 충돌하지 않도록 `nd-` 접두어를 붙입니다. 메인 프로세스에서 호출하는 전역 렌더러 함수는 `window.ND_` 접두어를 사용합니다.
+- **한국어 문구와 주석**: 코드 주석과 화면 문구는 자연스러운 한국어로 작성합니다. 범위를 표기할 때는 물결표 대신 하이픈(`-`)을 쓰고, 불필요한 가운뎃점을 남발하지 않습니다.
+- **버전 관리**: 앱 버전은 `package.json`의 `version` 필드 한 곳에서만 관리합니다.
+- **애니메이션 토큰**: 전환 시간과 가속도 곡선은 `web/app.css`의 `:root` 변수에서 일괄 관리합니다.
+- **크로스플랫폼 호환**: 단축키는 macOS의 `⌘`과 Windows 및 Linux의 `Ctrl`을 모두 지원합니다(`app.js`의 `IS_MAC`, `MODK`, `keyLabel`). 파일 경로는 반드시 `path.join`으로 다루고, macOS 전용 네이티브 모듈이 로드되지 않은 환경에서도 모든 기본 기능이 정상 동작해야 합니다.
+- **저장소 제외 항목**: 패키지 빌드 결과물(`dist/`), `node_modules/`, 네이티브 모듈 빌드 산출물(`native/*/build/`)은 커밋하지 않습니다.
 
 ## 빌드와 배포
 
 ```bash
 npm run dist:mac      # dist/namudump-<버전>-mac-arm64.dmg
 npm run dist:win      # dist/namudump-<버전>-win-x64-setup.exe, -win-arm64-setup.exe
-npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -arm64.AppImage, .deb
+npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm64.AppImage
 ```
 
-- 설정은 `package.json`의 `build`에 있습니다([electron-builder](https://www.electron.build)).
-- Windows, Linux 설치 파일은 맥에서도 만들 수 있습니다. 실행 확인은 해당 운영체제에서 합니다. `.github/workflows/build.yml`은 태그(`v*`)를 올리거나 직접 실행하면 다섯 환경에서 각각 빌드해 결과물을 올립니다(릴리스에 게시하지는 않음).
-- **앱 이름**: 앱 묶음과 실행 파일 이름은 영문 `NamuDump`입니다. Electron 보조 앱(`NamuDump Helper.app`) 이름에 한글이 들어가면 macOS에서 시작하자마자 멈춥니다(SIGTRAP). 맥에서는 `build/mac/InfoPlist.strings`로 파인더, Dock, Spotlight, 메뉴 막대에 '나무덤프'로 보이게 합니다. Info.plist의 `CFBundleName`을 한글로 바꾸면 역시 멈추므로, 한글 이름은 이 지역화 파일에만 둡니다(메뉴 막대의 앱 메뉴 이름은 지역화한 `CFBundleName`). 지역화한 표시 이름은 Info.plist의 `CFBundleDisplayName`이 파일 이름(`NamuDump`)과 같을 때만 쓰입니다. Windows는 시작 메뉴와 제거 목록, Linux는 데스크톱 항목 이름이 '나무덤프'입니다.
-- **아이콘**
-  - 모양은 가운데 잎맥을 따라 접힌 잎 하나가 펼친 책처럼 보이는 것입니다. 밝은 쪽에는 가는 틈 세 줄을 내어 글줄을 나타내고, 어두운 쪽은 통으로 둡니다.
-  - 맥: 원본은 Icon Composer 문서 `build/AppIcon.icon`입니다. 여기서 만든 `Assets.car`(macOS 26 이상의 Liquid Glass 아이콘)와 `AppIcon.icns`(오래된 macOS, .dmg 볼륨 아이콘)를 앱에 넣고 `CFBundleIconName`을 `AppIcon`으로 둡니다. 결과물도 저장소에 두므로 아이콘을 고치지 않으면 빌드에 Xcode가 필요 없습니다. 다시 만들 때는 Xcode 안의 Icon Composer와 `xcrun actool`을 씁니다(`ictool`은 Icon Composer 안의 것. `xcrun ictool`은 이름만 같은 다른 도구).
-  - Windows, Linux, README: `build/icon-flat.svg`(같은 모양을 단색으로 칠한 플랫 아이콘)를 그린 `build/icon.png`(1024px)와 `docs/icon.png`(512px)를 씁니다. 작은 크기에서도 잎맥 틈이 보이도록 틈을 맥 아이콘보다 조금 넓게 둡니다. PNG는 4096px로 크게 그린 뒤 절반씩 줄여 만들어야 가는 줄이 계단처럼 깨지지 않습니다.
-  - 아이콘을 고칠 때는 밝은 바탕과 다크 바탕, 16px까지 작은 크기를 함께 보고, 잎의 무게중심을 재서 맞춥니다.
-- **서명**: 맥 앱은 임시(ad-hoc) 서명만 합니다. 공증을 받지 않았으므로 내려받아 설치하면 경고가 뜹니다(README 참고). Windows 설치 파일도 서명하지 않습니다.
-- **.dmg**: 창 크기(660×440)와 아이콘 자리(앱 180, 응용 프로그램 480, 높이 128)는 `build/dmg_background.tiff`의 그림에 맞춥니다.
-- **릴리스 순서**
-  1. `package.json`의 `version`을 올리고 `CHANGELOG.md`에 바뀐 점을 적습니다.
-  2. 커밋하고 올립니다.
-  3. 각 운영체제용 파일을 만듭니다(직접 또는 Actions).
-  4. `v<버전>` 태그로 GitHub 릴리스를 만들고 파일들을 첨부합니다. 릴리스 설명에는 `CHANGELOG.md`의 해당 부분을 옮깁니다.
+- 패키징 설정은 `package.json`의 `build` 항목([electron-builder](https://www.electron.build))에 정의되어 있습니다.
+- `.github/workflows/build.yml` 워크플로는 `v*` 태그가 푸시되거나 GitHub Actions에서 수동 실행(`workflow_dispatch`)될 때 5개 환경(macOS arm64, Windows x64 및 Arm64, Linux x64 및 arm64)에서 설치 파일을 빌드해 아티팩트로 업로드합니다.
+- **앱 이름 처리**: macOS 앱 번들과 실행 파일 이름은 영문 `NamuDump`로 유지합니다. Electron Helper 번들 이름이나 `Info.plist`의 `CFBundleName`에 한글이 들어가면 macOS에서 실행 직후 크래시(SIGTRAP)가 발생하기 때문입니다. 대신 `build/mac/InfoPlist.strings` 지역화 파일을 통해 Finder, Dock, Spotlight, 메뉴 막대에서는 '나무덤프'로 표시되게 합니다. Windows에서는 시작 메뉴와 프로그램 추가/제거 목록에, Linux에서는 데스크톱 엔트리에 '나무덤프'로 등록됩니다.
+- **아이콘 구성**
+  - 아이콘은 가운데 잎맥을 따라 접힌 나뭇잎 하나가 펼쳐진 책처럼 보이도록 디자인했습니다. 밝은 오른쪽 면에는 세 줄의 틈을 내어 본문 글줄을 형상화했습니다.
+  - **macOS**: Xcode Icon Composer 원본(`build/AppIcon.icon`)에서 컴파일한 `Assets.car`(macOS 26 이상 Liquid Glass 아이콘)와 `AppIcon.icns`(하위 macOS 및 `.dmg` 볼륨 아이콘)를 사용합니다. 빌드 결과물이 저장소에 포함되어 있어 아이콘 자체를 수정하지 않는 한 빌드 시 Xcode가 필요하지 않습니다.
+  - **Windows, Linux, 웹 화면, README**: 동일한 형태를 단색 플랫 스타일로 그린 `build/icon-flat.svg` 기반의 `build/icon.png`(1024px), `docs/icon.png`(512px), `web/icon.png`(256px)를 사용합니다.
+- **코드 서명**: macOS 빌드는 임시(ad-hoc) 서명만 수행하며 Apple 공증(Notarization)은 거치지 않습니다. Windows 설치 파일 역시 별도 인증서 서명을 하지 않으므로 최초 실행 시 안내를 README에 수록했습니다.
+- **릴리스 절차**
+  1. `package.json`의 `version`을 업데이트하고 `CHANGELOG.md`에 변경 사항을 기록합니다.
+  2. 변경 사항을 커밋하고 푸시합니다.
+  3. 각 운영체제용 설치 파일을 빌드합니다(로컬 빌드 또는 GitHub Actions).
+  4. `v<버전>` 태그로 GitHub Release를 생성하고 빌드된 파일을 첨부합니다.
 
-## 사용자 데이터
+## 사용자 데이터와 덤프 파일
 
-- **저장 위치**: macOS `~/Library/Application Support/NamuDump`, Windows `%APPDATA%\NamuDump`, Linux `~/.config/NamuDump`. 크로미움이 쓰는 파일(캐시 등)은 그 안의 `electron/`에 따로 둡니다.
-- **저장하는 것**: 설정(`settings.json`), 방문 기록과 즐겨찾기(`user.sqlite`). 1.0과 같은 형식이라 그대로 이어서 씁니다.
-- **덤프 위치**: 사용자가 고른 경로를 `settings.json`의 `db_path`에 기억합니다. 덤프는 `mode=ro&immutable=1`로 열어 잠그거나 고치지 않습니다.
+- **데이터 저장 위치**: macOS `~/Library/Application Support/NamuDump`, Windows `%APPDATA%\NamuDump`, Linux `~/.config/NamuDump`. 크로미움 내부 캐시와 세션 파일은 하위 폴더인 `electron/`에 분리해 보관합니다.
+- **저장 파일**: 환경 설정(`settings.json`), 방문 기록 및 즐겨찾기(`user.sqlite`). 1.0 및 2.0 버전과 스키마가 같아 업데이트 시 기존 데이터가 그대로 유지됩니다.
+- **덤프 파일 접근**: 선택한 덤프 파일 경로는 `settings.json`의 `db_path`에 저장됩니다. 덤프는 `?mode=ro&immutable=1` 옵션으로 읽기 전용 연결만 수행하므로 원본 파일을 잠그거나 변경하지 않습니다. `docs` 테이블에 `html` 컬럼이 없는 마크다운 전용 덤프(`namu-md.sqlite`)를 열려고 하면 `namu-html.sqlite` 파일이 필요하다는 안내 메시지를 반환합니다.
 
-## 메인 프로세스와 화면 사이
+## 프로세스 간 통신과 보안
 
-| 방향 | 방법 |
+| 방향 | 통신 방식 |
 |---|---|
-| 화면 → 덤프, 설정 | `fetch('/api/...')`. `namudump://` 주소 처리기가 받아 작업 스레드(`api.js`)로 넘깁니다. |
-| 화면 → 운영체제 | `window.ndNative.call(이름, 값)`(IPC). `pick`(파일 선택), `bg`(창 바탕색, Windows·Linux 창 단추 색), `open_url`, `swipe_lock`, `quit` |
-| 메인 → 화면 | 메뉴 명령은 `ND_command`, 전체 화면은 `ND_setFullscreen`, 오른쪽 클릭 검색은 `ND_searchSelection`, 맥 쓸기 입력은 `ndNative.onInput` |
+| 렌더러 → 덤프 및 설정 | `fetch('/api/...')` 호출을 `namudump://` 프로토콜 핸들러가 받아 워커 스레드(`api.js`)로 전달 |
+| 렌더러 → 운영체제 | `window.ndNative.call(명령, 인자)`(IPC)로 파일 선택(`pick`), 창 배경색 및 Windows와 Linux 창 버튼 색상 동기화(`bg`), 외부 링크 열기(`open_url`), 쓸기 제스처 잠금(`swipe_lock`), 앱 종료(`quit`) 수행 |
+| 메인 → 렌더러 | 메뉴 명령(`ND_command`), 전체 화면 상태(`ND_setFullscreen`), 선택 영역 검색(`ND_searchSelection`), macOS 트랙패드 쓸기 입력(`ndNative.onInput`) 전달 |
 
-- API: GET `status`, `settings`, `doc?title=`, `suggest?q=`, `search?q=&mode=prefix|contains`, `random`, `history`, `bookmarks`. POST `settings`, `open`, `bookmark`, `history`, `exists`.
-- 화면에는 CSP를 겁니다(`web.js`). 화면 파일은 `web/` 밖으로 나갈 수 없습니다. 외부 그림은 유튜브 썸네일(`i.ytimg.com`)만 받습니다.
-- **유튜브 썸네일**: 틀이 화면 가까이(600px) 왔을 때만 `maxresdefault`를, 없으면(유튜브가 120px 빈 그림을 줌) `hqdefault`를 받습니다(`app.js`의 `loadThumb`). 받지 못하면 검은 바탕 그대로 둡니다.
-- 외부 링크는 `http`, `https`, `mailto` 주소만 기본 브라우저로 엽니다. 창 안에서 다른 사이트로 가려는 이동은 막습니다.
-- **동영상**: `namudump://`에서는 Referer가 가지 않아 유튜브가 재생을 거부합니다(오류 153). 유튜브 안내대로 플레이어 요청에만 앱 식별자(`https://com.hishydrogen.namudump/`)를 Referer로 붙입니다.
-- **허용하는 권한**: 전체 화면(동영상), 복사, 설치된 글꼴 목록(설정의 글꼴 고르기). 내려받기는 막습니다.
+- **콘텐츠 보안 정책(CSP)**: `web.js`에서 `index.html` 응답에 엄격한 CSP 헤더를 부여합니다. 외부 이미지는 YouTube 썸네일(`https://i.ytimg.com`)만 허용하며, 외부 링크는 `http`, `https`, `mailto` 스킴만 기본 웹 브라우저로 엽니다.
+- **YouTube 임베드 재생**: 커스텀 스킴(`namudump://`)에서는 기본 `Referer` 헤더가 전송되지 않아 YouTube 플레이어가 재생을 차단(오류 153)하므로, `https://www.youtube.com/embed/*` 요청에만 앱 식별자(`https://com.hishydrogen.namudump/`)를 `Referer`로 주입합니다.
+- **권한 제한**: 동영상 전체 화면(`fullscreen`), 클립보드 복사(`clipboard-sanitized-write`), 로컬 글꼴 목록 조회(`local-fonts`)만 허용하고 파일 다운로드와 그 밖의 권한 요청은 차단합니다.
 
-## 화면(app.js)
+## 화면 렌더링과 인터랙션(web/)
 
-- **링크**: 외부 링크는 `open_url`로 기본 브라우저에서 엽니다. ⌘(Ctrl)을 누르고 문서 링크를 누르면 새 창에서 엽니다.
-- **각주, 목차로 이동**: 거리와 관계없이 0.2~0.34초 안에 끝나는 짧은 애니메이션(`quickScrollTo`)입니다. 사용자가 굴리거나 누르면 바로 멈춥니다.
-- **오른쪽 목차 표시**: 막대 하나(`.nd-toc-ind`)가 지금 읽는 문단으로 미끄러져 옮겨 갑니다. 새 문서를 연 직후(앞뒤 이동으로 읽던 자리를 찾는 동안)에는 미끄러지지 않고 바로 놓습니다.
-- **읽던 자리**: 기록마다 `key`를 붙이고, 떠나기 직전에 화면 맨 위 요소의 경로와 높이, 문단 접기와 접기 상자 상태를 기억했다가 되살립니다. 픽셀 위치만으로는 어긋났습니다.
-- **쓸어서 앞뒤로(맥)**: 바로 앞뒤 기록의 화면은 한가할 때 미리 만들어 `content-visibility: hidden`으로 숨겨 둡니다(`warmNeighbors`). 쓸기를 시작하면 꺼내기만 해서 멈칫하지 않습니다. 미리 보기에 넣는 화면은 id를 지우고, 그 문서의 CSS는 미리 보기 안에서만 듣게 범위를 바꿉니다(지금 문서의 CSS는 `:where(#nd-main)`). 입력은 프레임마다 한 번만 화면에 반영합니다.
-- **상단 막대**: 창을 끄는 영역은 CSS(`-webkit-app-region`)로 정합니다. 단추, 입력란, 떠 있는 상자는 끌지 않습니다. 상단 막대 위에서 굴린 휠은 문서로 넘기지 않습니다.
-- **광고 걸러 내기**(`render.js`): 크롤링하면서 광고 링크는 가짜 문단 앵커(`#s-숫자`)로 바뀌어 있고, 그중 하나는 광고주 주소를 글자로 가집니다. 그런 링크에서 시작해 안의 링크가 모두 `#s-숫자`이고 문단 제목이 없는 가장 큰 상자를 지웁니다. 클래스 이름은 덤프마다 달라 쓰지 않습니다.
+- **목차 및 각주 빠른 스크롤**: 브라우저 기본 `smooth` 스크롤은 이동 거리가 멀수록 지연이 길어지므로, 거리와 관계없이 0.2-0.34초 안에 도달하는 커스텀 이징 스크롤(`quickScrollTo`)을 사용합니다. 도중에 사용자가 휠을 굴리거나 클릭하면 즉시 멈춥니다.
+- **오른쪽 목차 현재 위치 표시**: 단일 인디케이터 막대(`.nd-toc-ind`)가 현재 읽고 있는 문단 항목으로 미끄러지듯 이동합니다.
+- **읽던 위치와 접기 상태 복원**: 히스토리 항목마다 고유 `key`를 부여하고, 문서를 떠나기 직전에 화면 상단에 걸친 DOM 요소의 경로와 오프셋, 문단 접기 및 `<details>` 펼침 상태를 저장해 정확히 복원합니다.
+- **쓸어서 앞뒤 이동(macOS)**: 유휴 시간에 바로 이전과 다음 히스토리의 DOM 미리 보기를 미리 구성해 `content-visibility: hidden`으로 숨겨 둡니다(`warmNeighbors`). 사용자가 트랙패드를 좌우로 쓸기 시작하면 지연 없이 이전 또는 다음 문서 화면을 겹쳐 보여 줍니다.
+- **광고 제거(`render.js`)**: 크롤링 과정에서 가짜 문단 앵커(`#s-숫자`)로 변환된 광고주 도메인 링크를 역추적해 광고 컨테이너 전체를 제거합니다.
 
-## 맥 트랙패드 입력(native/mac-input)
+## macOS 트랙패드 입력 모듈(native/mac-input)
 
-- Electron(크로미움)은 스크롤 입력의 위상(손가락을 댔는지, 관성인지)을 웹에 알려 주지 않고, 쓸어서 앞뒤로 가는 기능도 없습니다. 그래서 `NSEvent` 지역 감시자로 정밀 스크롤 입력을 보고 좌우 쓸기만 가려내 화면(`ND_swipe`)에 넘깁니다.
-- 화면이 "이번 동작은 쓸기"라고 알리면(`swipe_lock`) 그 동작의 나머지 입력과 관성은 크로미움에 넘기지 않습니다.
-- 세로 스크롤, 문서 끝 튕기기(`scrollBounce`), 마우스 휠은 크로미움이 합성 스레드에서 처리합니다. 1.0처럼 앱이 직접 튕기거나 휠을 굴리면 입력이 IPC로 고르지 않게 들어와 버벅였고, 문서 영역을 늘 그림층으로 두면 상단 막대의 흐림이 떨렸습니다.
-- 등록한 문서 창의 입력만 봅니다(`watch`). 파일 선택 창, 개발자 도구는 건드리지 않습니다.
-- N-API로 만들어 Electron을 올려도 다시 빌드할 필요가 없습니다. 모듈이 없으면 쓸어서 넘기기만 빠집니다.
+- 크로미움은 트랙패드 스크롤 이벤트의 단계(손가락 접촉 시작, 이동, 해제, 관성)를 웹 페이지에 노출하지 않으므로, `NSEvent` 로컬 모니터로 정밀 스크롤(`hasPreciseScrollingDeltas`) 이벤트를 감지해 좌우 쓸기 동작만 렌더러(`ND_swipe`)로 전달합니다.
+- 렌더러가 현재 제스처를 페이지 전환 쓸기로 확정한 경우(`swipe_lock`) 해당 제스처의 남은 이벤트와 관성 스크롤은 크로미움으로 넘기지 않고 가로챕니다.
+- 세로 스크롤과 문서 끝 탄성 효과(`scrollBounce`), 일반 마우스 휠은 크로미움 합성 스레드가 직접 처리해 프레임 저하 없이 부드럽게 동작합니다.

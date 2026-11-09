@@ -27,17 +27,23 @@ class Dump {
     this.path = path.resolve(expandHome(String(p || '')));
     let st;
     try { st = fs.statSync(this.path); } catch (e) { st = null; }
-    if (!st || !st.isFile()) throw new DumpError('파일을 찾을 수 없습니다: ' + this.path);
+    if (!st || !st.isFile()) throw new DumpError('해당 경로에서 파일을 찾을 수 없습니다: ' + this.path);
     // immutable=1: 잠금과 변경 확인을 하지 않는다(외장 드라이브에서도 빠르게 읽는다)
     const uri = pathToFileURL(this.path).href + '?mode=ro&immutable=1';
     try {
       this.db = new DatabaseSync(uri, { readOnly: true });
       this.db.exec('PRAGMA cache_size = -65536');
       const cols = new Set(this.db.prepare('PRAGMA table_info(docs)').all().map((r) => r.name));
-      if (!cols.has('title') || !cols.has('html')) throw new DumpError('나무위키 덤프 형식(docs 테이블의 title, html 컬럼)이 아닙니다.');
+      if (cols.has('title') && cols.has('md') && !cols.has('html')) {
+        throw new DumpError('마크다운 전용 덤프 파일(namu-md.sqlite)은 지원하지 않습니다. HTML 본문이 포함된 덤프 파일(namu-html.sqlite)을 선택해 주세요.');
+      }
+      if (!cols.has('title') || !cols.has('html')) {
+        throw new DumpError('지원하는 나무위키 덤프 형식(namu-html.sqlite)이 아닙니다.');
+      }
     } catch (e) {
+      if (this.db) { try { this.db.close(); } catch (x) { /* 무시 */ } this.db = null; }
       if (e instanceof DumpError) throw e;
-      throw new DumpError('SQLite 파일이 아니거나 손상되었습니다: ' + e.message);
+      throw new DumpError('SQLite 데이터베이스 파일이 아니거나 손상되었습니다: ' + e.message);
     }
     this.meta = {};
     try {
@@ -69,7 +75,7 @@ class Dump {
         raw = zlib.inflateRawSync(raw);
       } catch (e2) {
         const head = raw.toString('latin1', 0, 64).trimStart()[0];
-        if (!['<', '-', '#'].includes(head)) throw new DumpError('압축을 풀 수 없는 형식입니다.');
+        if (!['<', '-', '#'].includes(head)) throw new DumpError('문서 데이터의 압축을 풀 수 없습니다.');
       }
     }
     return raw.toString('utf8');

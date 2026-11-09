@@ -15,7 +15,7 @@ const IS_MAC = process.platform === 'darwin';
 const TOP_H = 60;              // 상단 막대 높이(app.css의 --nd-top-h)
 const INFO = {
   name: APP_NAME, version: pkg.version, author: pkg.author, homepage: pkg.homepage,
-  copyright: '© 2026 ' + pkg.author, platform: process.platform,
+  copyright: '© 2026 ' + pkg.author, platform: process.platform, arch: process.arch,
 };
 
 // 설정과 기록: 맥 ~/Library/Application Support/NamuDump(1.0, 2.0과 같은 곳),
@@ -162,6 +162,10 @@ function setupWindow(win) {
   const tellFullscreen = (on) => wc.executeJavaScript(`window.ND_setFullscreen && ND_setFullscreen(${on})`).catch(() => {});
   win.on('enter-full-screen', () => tellFullscreen(true));
   win.on('leave-full-screen', () => tellFullscreen(false));
+  win.on('app-command', (e, cmd) => {
+    if (cmd === 'browser-backward') wc.executeJavaScript('history.back()').catch(() => {});
+    else if (cmd === 'browser-forward') wc.executeJavaScript('history.forward()').catch(() => {});
+  });
   // 개발 중에는 F12나 ⌥⌘I로 개발자 도구를 연다
   wc.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && (input.key === 'F12' || (input.alt && (input.meta || input.control) && input.key.toLowerCase() === 'i'))) {
@@ -227,9 +231,9 @@ ipcMain.handle('nd', async (e, ep, body) => {
   body = body && typeof body === 'object' ? body : {};
   if (ep === 'pick') {
     const r = await dialog.showOpenDialog(win, {
-      title: '나무위키 덤프 파일 선택', message: '나무위키 덤프 파일(.sqlite)을 선택하세요',
+      title: '나무위키 덤프 파일 선택', message: '나무위키 덤프 파일(namu-html.sqlite)을 선택해 주세요',
       defaultPath: app.getPath('downloads'), properties: ['openFile'],
-      filters: [{ name: 'SQLite 덤프', extensions: ['sqlite', 'sqlite3', 'db'] }, { name: '모든 파일', extensions: ['*'] }],
+      filters: [{ name: 'SQLite 덤프 파일', extensions: ['sqlite', 'sqlite3', 'db'] }, { name: '모든 파일', extensions: ['*'] }],
     });
     if (r.canceled || !r.filePaths.length) return { ok: false, cancelled: true };
     return (await callWorker('POST', 'open', {}, { path: r.filePaths[0] })).data;
@@ -263,7 +267,7 @@ function buildMenu() {
       { label: `${APP_NAME}에 관하여`, role: 'about' },
       { type: 'separator' },
       { label: '설정…', accelerator: 'Cmd+,', click: () => sendCommand('settings') },
-      { label: '덤프 파일 열기…', click: () => sendCommand('pick') },
+      { label: '덤프 파일 열기…', accelerator: 'Cmd+O', click: () => sendCommand('pick') },
       { type: 'separator' },
       { label: '서비스', role: 'services' },
       { type: 'separator' },
@@ -275,15 +279,34 @@ function buildMenu() {
     ] },
     { label: '파일', submenu: [
       { label: '새 창', accelerator: 'Cmd+N', click: () => createWindow('/') },
+      { label: '덤프 파일 열기…', click: () => sendCommand('pick') },
+      { type: 'separator' },
       { label: '창 닫기', role: 'close' },
     ] },
     { label: '편집', submenu: [
       { label: '실행 취소', role: 'undo' }, { label: '실행 복귀', role: 'redo' }, { type: 'separator' },
       { label: '오려두기', role: 'cut' }, { label: '복사하기', role: 'copy' }, { label: '붙여넣기', role: 'paste' },
       { label: '전체 선택', role: 'selectAll' },
+      { type: 'separator' },
+      { label: '문서에서 찾기…', accelerator: 'Cmd+F', click: () => sendCommand('find') },
     ] },
     { label: '보기', submenu: [
+      { label: '보관함', accelerator: 'Cmd+Y', click: () => sendCommand('drawer') },
+      { type: 'separator' },
+      { label: '실제 크기', accelerator: 'Cmd+0', click: () => sendCommand('zoom_reset') },
+      { label: '글자 크게', accelerator: 'Cmd+Plus', click: () => sendCommand('zoom_in') },
+      { label: '글자 작게', accelerator: 'Cmd+-', click: () => sendCommand('zoom_out') },
+      { type: 'separator' },
       { label: '전체 화면', role: 'togglefullscreen' },
+    ] },
+    { label: '이동', submenu: [
+      { label: '뒤로', accelerator: 'Cmd+[', click: () => sendCommand('back') },
+      { label: '앞으로', accelerator: 'Cmd+]', click: () => sendCommand('forward') },
+      { label: '홈 화면', accelerator: 'Cmd+Shift+H', click: () => sendCommand('home') },
+      { type: 'separator' },
+      { label: '문서 제목 검색…', accelerator: 'Cmd+K', click: () => sendCommand('search') },
+      { label: '무작위 문서', accelerator: 'Cmd+R', click: () => sendCommand('random') },
+      { label: '즐겨찾기 추가 및 해제', accelerator: 'Cmd+D', click: () => sendCommand('bookmark') },
     ] },
     { label: '윈도우', role: 'windowMenu', submenu: [
       { label: '최소화', role: 'minimize' }, { label: '확대/축소', role: 'zoom' },
@@ -303,7 +326,7 @@ app.whenReady().then(() => {
   app.setAboutPanelOptions({
     applicationName: APP_NAME, applicationVersion: pkg.version, version: '',
     copyright: INFO.copyright, website: pkg.homepage,
-    credits: '나무위키 덤프를 인터넷 없이 읽는 프로그램\n문서 내용: 나무위키 기여자, CC BY-NC-SA 2.0 KR\n나무위키와 관계없는 비공식 프로그램입니다.',
+    credits: '인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어\n문서 저작권: 나무위키 기여자 (CC BY-NC-SA 2.0 KR)\n나무위키 운영사와 관계없는 비공식 프로그램입니다.',
   });
   // 외부 요청은 화면이 직접 띄운 동영상 틀(https)만 허용한다. 내려받기는 막는다.
   session.defaultSession.on('will-download', (e) => e.preventDefault());

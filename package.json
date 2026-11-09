@@ -2,9 +2,9 @@
   "name": "namudump",
   "productName": "나무덤프",
   "version": "3.0.0",
-  "description": "나무위키 덤프를 인터넷 없이 읽는 프로그램",
+  "description": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어",
   "main": "app/main.js",
-  "author": "hishydrogen",
+  "author": "Hishydrogen",
   "license": "MIT",
   "homepage": "https://github.com/hishydrogen/namudump",
   "private": true,
@@ -25,7 +25,7 @@
   "build": {
     "appId": "com.hishydrogen.namudump",
     "productName": "NamuDump",
-    "copyright": "© 2026 hishydrogen",
+    "copyright": "© 2026 Hishydrogen",
     "artifactName": "namudump-${version}-${os}-${arch}.${ext}",
     "directories": { "output": "dist", "buildResources": "build" },
     "files": [
@@ -80,16 +80,13 @@
       "uninstallDisplayName": "나무덤프"
     },
     "linux": {
-      "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] },
-        { "target": "deb", "arch": ["x64", "arm64"] }
-      ],
+      "target": [{ "target": "AppImage", "arch": ["x64", "arm64"] }],
       "icon": "build/icon.png",
       "executableName": "namudump",
       "category": "Education",
-      "synopsis": "나무위키 덤프를 인터넷 없이 읽는 프로그램",
-      "maintainer": "hishydrogen",
-      "desktop": { "entry": { "Name": "나무덤프", "Comment": "나무위키 덤프를 인터넷 없이 읽는 프로그램", "StartupWMClass": "namudump" } }
+      "synopsis": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어",
+      "maintainer": "Hishydrogen",
+      "desktop": { "entry": { "Name": "나무덤프", "Comment": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어", "StartupWMClass": "namudump" } }
     }
   }
 }

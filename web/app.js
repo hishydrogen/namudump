@@ -26,6 +26,7 @@
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>',
     moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
     auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v4.8l3.2 2"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   };
 
@@ -555,19 +556,19 @@
       <div class="nd-home">
         <div class="nd-bigsearch" id="nd-bigsearch">
           <span class="ic">${I.search}</span>
-          <input id="nd-bigq" type="search" placeholder="문서 제목으로 찾기" autocomplete="off" spellcheck="false" aria-label="문서 제목으로 찾기">
+          <input id="nd-bigq" type="search" placeholder="문서 제목 검색" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
           <div class="nd-sugg" id="nd-bigsugg" hidden></div>
         </div>
         <div class="nd-home-meta">
-          <span>${dumpDate() ? dumpDate() + ' 덤프 · ' : ''}문서 ${fmtNum(st.doc_count)}개</span>
-          <a id="nd-home-dump" title="다른 덤프 파일 열기">덤프 바꾸기</a>
+          <span>${dumpDate() ? dumpDate() + ' 기준 덤프, ' : ''}문서 ${fmtNum(st.doc_count)}개</span>
+          <a id="nd-home-dump" title="다른 덤프 파일 열기">덤프 파일 변경</a>
         </div>
         <section class="nd-sect" id="nd-home-recent"></section>
         <section class="nd-sect" id="nd-home-bm"></section>
         <section class="nd-sect" id="nd-home-discover"></section>
         <div class="nd-about">
-          문서는 나무위키 기여자들이 작성했으며 <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a>에 따라 이용할 수 있습니다.
-          덤프에는 이미지 파일이 없어 이미지 자리에는 설명만 표시합니다.
+          문서 내용의 저작권은 나무위키 기여자에게 있으며, <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a> 라이선스에 따라 비영리 목적으로 이용할 수 있습니다.
+          오프라인 덤프에는 이미지 파일이 포함되어 있지 않아 이미지 영역에는 설명만 표시됩니다.
         </div>
       </div>`, { side: false });
     const bq = $('#nd-bigq');
@@ -592,7 +593,7 @@
       const [hist, bms] = await Promise.all([recOn ? api('history') : Promise.resolve([]), api('bookmarks')]);
       if (!$('#nd-home-recent')) return;
       S.bookmarks = new Set(bms.map((b) => b.title));
-      const more = (id) => `<button type="button" id="${id}">모두 보기${I.fwd}</button>`;
+      const more = (id) => `<button type="button" id="${id}">전체 보기${I.fwd}</button>`;
       const last = hist[0];
       $('#nd-home-recent').innerHTML = last ? `
         <div class="nd-sect-h"><h2>이어서 읽기</h2>${hist.length > 1 ? more('nd-home-more-h') : ''}</div>
@@ -613,7 +614,7 @@
     const box = $('#nd-home-discover');
     if (!box) return;
     if (!box.firstChild) {
-      box.innerHTML = `<div class="nd-sect-h"><h2>둘러볼 만한 문서</h2><button type="button" id="nd-home-shuffle">${I.shuffle}다른 문서</button></div><div class="nd-tiles loading" id="nd-home-dtiles">${'<span class="nd-tile"><b>…</b></span>'.repeat(DISCOVER_N)}</div>`;
+      box.innerHTML = `<div class="nd-sect-h"><h2>둘러볼 만한 문서</h2><button type="button" id="nd-home-shuffle">${I.shuffle}다른 문서 보기</button></div><div class="nd-tiles loading" id="nd-home-dtiles">${'<span class="nd-tile"><b>…</b></span>'.repeat(DISCOVER_N)}</div>`;
       $('#nd-home-shuffle').onclick = refreshDiscover;
     }
     try {
@@ -627,7 +628,7 @@
   }
   function ago(ts) {
     const s = Date.now() / 1000 - ts;
-    if (s < 60) return '방금';
+    if (s < 60) return '방금 전';
     if (s < 3600) return Math.floor(s / 60) + '분 전';
     if (s < 86400) return Math.floor(s / 3600) + '시간 전';
     if (s < 86400 * 7) return Math.floor(s / 86400) + '일 전';
@@ -642,12 +643,12 @@
     setPage(`
       <div class="nd-card nd-onb">
         <div class="nd-hero-logo"></div>
-        <h1>덤프 파일을 연결해 주세요</h1>
-        <p>가지고 계신 나무위키 덤프 파일(.sqlite)을 선택하면 바로 읽을 수 있습니다.<br>원본 파일은 읽기만 하고 바꾸지 않습니다.</p>
+        <h1>나무위키 덤프 파일을 선택해 주세요</h1>
+        <p>HTML 본문이 포함된 나무위키 오프라인 덤프 파일(<code>namu-html.sqlite</code>)을 연결하면<br>인터넷 없이도 모든 문서를 바로 읽을 수 있습니다.</p>
         ${st.error ? `<div class="err">${esc(st.error)}</div>` : ''}
-        <div style="margin-top:20px"><button class="nd-btn pri" id="nd-pick">${I.folder}파일 선택…</button></div>
-        <div class="nd-pathrow"><input id="nd-path" placeholder="또는 덤프 파일 경로를 붙여 넣으세요" value="${esc(st.db_path || '')}"><button class="nd-btn" id="nd-open">열기</button></div>
-        <p style="margin-top:14px;font-size:13px">외장 드라이브에 둔 파일도 열 수 있습니다. 드라이브를 연결한 뒤 다시 시도하세요.</p>
+        <div style="margin-top:20px"><button class="nd-btn pri" id="nd-pick">${I.folder}덤프 파일 선택…</button></div>
+        <div class="nd-pathrow"><input id="nd-path" placeholder="또는 파일 경로를 직접 입력해 주세요" value="${esc(st.db_path || '')}"><button class="nd-btn" id="nd-open">열기</button></div>
+        <p style="margin-top:14px;font-size:13px">외장 드라이브에 보관된 파일도 열 수 있으며, 원본 파일은 읽기 전용으로만 접근해 수정하지 않습니다.</p>
       </div>`, {});
     $('#nd-pick').onclick = pickDump;
     $('#nd-open').onclick = () => openDumpPath($('#nd-path').value.trim());
@@ -657,7 +658,7 @@
     progress(true);
     try {
       const r = await api('pick');
-      if (r.ok) { await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일을 열었습니다.'); }
+      if (r.ok) { await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
       else if (!r.cancelled) { await refreshStatus(); route(); }
     } finally { progress(false); }
   }
@@ -667,7 +668,7 @@
     try {
       const r = await api('open', { path: p });
       await refreshStatus();
-      if (r.ok) { closeModal(); go('/', { replace: true }); toast('덤프 파일을 열었습니다.'); }
+      if (r.ok) { closeModal(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
       else { closeModal(); route(); }
     } finally { progress(false); }
   }
@@ -704,6 +705,17 @@
   window.ND_command = (cmd) => {
     if (cmd === 'settings') openSettings();
     else if (cmd === 'pick') pickDump();
+    else if (cmd === 'find') openFind();
+    else if (cmd === 'drawer') openDrawer('history');
+    else if (cmd === 'zoom_reset') saveSettings({ font_size: 15 });
+    else if (cmd === 'zoom_in') saveSettings({ font_size: Math.min(24, (S.settings.font_size || 15) + 1) });
+    else if (cmd === 'zoom_out') saveSettings({ font_size: Math.max(12, (S.settings.font_size || 15) - 1) });
+    else if (cmd === 'back') history.back();
+    else if (cmd === 'forward') history.forward();
+    else if (cmd === 'home') go('/');
+    else if (cmd === 'search') { const q = $('#nd-bigq') || $('#nd-q'); q.focus(); q.select(); }
+    else if (cmd === 'random') randomDoc();
+    else if (cmd === 'bookmark') { if (location.pathname.startsWith('/w/')) toggleBookmark(); }
   };
   // 오른쪽 클릭 메뉴의 "나무덤프에서 제목 검색"
   window.ND_searchSelection = () => {
@@ -724,7 +736,7 @@
       progress(false);
       if (seq !== S.loadSeq) return;
       if (e.data && e.data.need_dump) { await refreshStatus(); renderOnboarding(); return; }
-      setPage(`<article class="nd-card nd-article"><h1 class="nd-title">문서를 표시하지 못했습니다</h1><p>${esc(e.message)}</p></article>`);
+      setPage(`<article class="nd-card nd-article"><h1 class="nd-title">문서를 불러오지 못했습니다</h1><p>${esc(e.message)}</p></article>`);
       return;
     }
     if (seq !== S.loadSeq) return;
@@ -748,7 +760,7 @@
     document.title = winTitle;
     if (S.native) api('window_title', { title: winTitle }).catch(() => {});
     const bd = document.getElementById('nd-brand-doc');
-    if (bd) { bd.textContent = docTitle || ''; bd.title = docTitle ? docTitle + ' (누르면 맨 위로)' : ''; }
+    if (bd) { bd.textContent = docTitle || ''; bd.title = docTitle ? docTitle + ' (클릭하면 맨 위로 이동)' : ''; }
     document.getElementById('nd-topbar').classList.remove('show-doc');
     if (titleObs) { titleObs.disconnect(); titleObs = null; }
   }
@@ -779,25 +791,25 @@
           <span class="grow"></span>
           <button class="nd-chipbtn${bm ? ' on' : ''}" id="nd-bm-btn">${bm ? I.starOn : I.star}<span>${bm ? '즐겨찾기됨' : '즐겨찾기'}</span></button>
           <button class="nd-chipbtn" id="nd-copy-btn" title="문서 제목 복사">${I.copy}<span>제목 복사</span></button>
-          <a class="nd-chipbtn" href="https://namu.wiki/w/${encodeURIComponent(title)}" target="_blank" rel="noopener noreferrer" title="인터넷의 최신판 보기">${I.ext}<span>나무위키에서 보기</span></a>
+          <a class="nd-chipbtn" href="https://namu.wiki/w/${encodeURIComponent(title)}" target="_blank" rel="noopener noreferrer" title="웹 브라우저에서 최신 문서 보기">${I.ext}<span>나무위키에서 보기</span></a>
         </div>
         ${catHtml}
         <div class="nd-content" id="nd-content"></div>
-        <div class="nd-docfoot">이 문서는 ${dumpDate() ? dumpDate() + ' 기준 ' : ''}나무위키 덤프에서 불러온 것입니다. 이후에 바뀐 내용은 반영되어 있지 않습니다.
-          원문은 나무위키 기여자들이 작성했으며 <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a> 라이선스를 따릅니다.</div>
+        <div class="nd-docfoot">이 문서는 ${dumpDate() ? dumpDate() + ' 기준 ' : ''}오프라인 덤프에서 불러왔으며, 이후 변경된 내용은 반영되어 있지 않습니다.
+          원문은 나무위키 기여자들이 작성했으며 <a href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a> 라이선스에 따라 이용할 수 있습니다.</div>
       </article>`, { side: !!(S.settings.toc_sidebar && res && res.toc.length > 1), star: true, css: res ? res.css : '', keepScroll: false });
     const content = $('#nd-content', page);
     if (res) {
       content.appendChild(res.fragment);
       if (!content.textContent.trim() && !content.querySelector('img, table')) {
-        content.innerHTML = res.hadBody ? '<p class="nd-empty">본문 내용이 없는 문서입니다.</p>' : '<p class="nd-empty">본문을 찾지 못했습니다.</p>';
+        content.innerHTML = res.hadBody ? '<p class="nd-empty">본문 내용이 없는 문서입니다.</p>' : '<p class="nd-empty">문서 본문을 찾지 못했습니다.</p>';
       }
     } else {
-      content.innerHTML = '<p class="nd-empty">이 문서의 HTML을 해석하지 못했습니다.</p>';
+      content.innerHTML = '<p class="nd-empty">문서 내용을 표시하지 못했습니다.</p>';
     }
     updateStar(bm);
     $('#nd-bm-btn').onclick = toggleBookmark;
-    $('#nd-copy-btn').onclick = () => { copyText(title); toast('제목을 복사했습니다.'); };
+    $('#nd-copy-btn').onclick = () => { copyText(title); toast('문서 제목을 복사했습니다.'); };
     const more = $('#nd-cat-more');
     if (more) more.onclick = () => {
       more.parentElement.insertAdjacentHTML('beforeend', cats.slice(12).map((c) => `<a href="${docUrl(c.title)}" data-title="${esc(c.title)}">${esc(c.name)}</a>`).join(''));
@@ -829,12 +841,12 @@
     setPage(`
       <article class="nd-card nd-article nd-missing-page">
         <h1 class="nd-title">${esc(d.title)}</h1>
-        <p class="big">이 문서는 덤프에 없습니다. 수집 이후에 생겼거나, 제목이 조금 다를 수 있습니다.</p>
+        <p class="big">덤프 파일에 이 문서가 없습니다. 덤프 생성 이후에 작성되었거나 제목이 조금 다를 수 있습니다.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <a class="nd-btn" href="/search?q=${encodeURIComponent(d.title)}" data-route>${I.search}제목에 포함된 문서 찾기</a>
+          <a class="nd-btn" href="/search?q=${encodeURIComponent(d.title)}" data-route>${I.search}‘${esc(d.title)}’ 검색 결과 보기</a>
           <a class="nd-btn" href="https://namu.wiki/w/${encodeURIComponent(d.title)}" target="_blank" rel="noopener noreferrer">${I.ext}나무위키에서 보기</a>
         </div>
-        ${sugg.length ? `<div class="nd-results"><h2>비슷한 제목</h2><ul class="nd-rlist">${sugg.map((t) => `<li><a href="${docUrl(t)}" data-title="${esc(t)}">${esc(t)}</a></li>`).join('')}</ul></div>` : ''}
+        ${sugg.length ? `<div class="nd-results"><h2>비슷한 제목의 문서</h2><ul class="nd-rlist">${sugg.map((t) => `<li><a href="${docUrl(t)}" data-title="${esc(t)}">${esc(t)}</a></li>`).join('')}</ul></div>` : ''}
       </article>`);
   }
 
@@ -899,7 +911,7 @@
     let w = +img.getAttribute('width') || 0, h = +img.getAttribute('height') || 0;
     if (!w || !h) { w = w || 120; h = h || 80; }
     img.classList.add('nd-img-ph');
-    img.title = (img.alt || '이미지') + ' (이미지는 덤프에 없습니다)';
+    img.title = (img.alt || '이미지') + ' (덤프에 이미지 파일이 없습니다)';
     if (!/width:100%|height:100%/.test(st)) { img.setAttribute('width', Math.min(w, 640)); img.setAttribute('height', Math.round(Math.min(w, 640) * h / w)); }
     img.src = placeholderSrc(w, h, img.alt);
   }
@@ -992,8 +1004,8 @@
         };
       } else {
         b.innerHTML = b.classList.contains('nd-embed-map')
-          ? `<div class="ctl">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">지도 보기</a>` : '<span>지도</span>'}</div>`
-          : `<div class="ctl"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">인터넷에서 열기</a>` : ''}</div>`;
+          ? `<div class="ctl">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">지도에서 보기</a>` : '<span>지도</span>'}</div>`
+          : `<div class="ctl"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div>`;
       }
     });
   }
@@ -1077,7 +1089,7 @@
     return el;
   }
   // 짧고 빠른 스크롤 이동. 브라우저 기본 'smooth'는 먼 거리일수록 오래 걸려 답답하므로,
-  // 거리와 관계없이 0.2~0.34초 안에 끝나게 하고, 사용자가 굴리거나 누르면 바로 멈춘다.
+  // 거리와 관계없이 0.2-0.34초 안에 끝나게 하고, 사용자가 굴리거나 누르면 바로 멈춘다.
   let qs = { raf: 0 };
   function quickScrollTo(top) {
     const sc = SCR();
@@ -1179,7 +1191,7 @@
     const b = $('#nd-star');
     b.innerHTML = on ? I.starOn : I.star;
     b.classList.toggle('on', !!on);
-    b.title = keyLabel(on ? '즐겨찾기에서 빼기 (⌘D)' : '즐겨찾기에 추가 (⌘D)');
+    b.title = keyLabel(on ? '즐겨찾기 해제 (⌘D)' : '즐겨찾기에 추가 (⌘D)');
     const bb = $('#nd-bm-btn');
     if (bb) { bb.classList.toggle('on', !!on); bb.innerHTML = (on ? I.starOn : I.star) + `<span>${on ? '즐겨찾기됨' : '즐겨찾기'}</span>`; }
   }
@@ -1189,7 +1201,7 @@
     const on = !S.bookmarks.has(t);
     if (on) S.bookmarks.add(t); else S.bookmarks.delete(t);
     updateStar(on);
-    toast(on ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 뺐습니다.');
+    toast(on ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 해제했습니다.');
     try { await api('bookmark', { title: t, on }); } catch (e) { /* 무시 */ }
   }
 
@@ -1208,7 +1220,7 @@
   async function openExternal(url) {
     try {
       const r = await api('open_url', { url });
-      if (r.ok) { toast('기본 브라우저에서 열었습니다.'); return; }
+      if (r.ok) { toast('웹 브라우저에서 링크를 열었습니다.'); return; }
     } catch (e) { /* 아래로 */ }
     window.open(url, '_blank');
   }
@@ -1235,7 +1247,7 @@
       if (!q || st.closed || document.activeElement !== input) { box.hidden = true; return; }
       const nsBadge = (t) => { const n = nsOf(t); return n ? `<span class="ns">${esc(n)}</span>` : ''; };
       box.innerHTML = st.items.map((t, i) => `<a class="nd-sugg-i${i === st.act ? ' act' : ''}" data-i="${i}" href="${docUrl(t)}" data-title="${esc(t)}">${I.doc}<span>${hl(t, q)}</span>${nsBadge(t)}</a>`).join('') +
-        `<div class="nd-sugg-foot">${I.search}<a data-search="${esc(q)}">‘${esc(q)}’ 제목 검색 결과 모두 보기</a></div>`;
+        `<div class="nd-sugg-foot">${I.search}<a data-search="${esc(q)}">‘${esc(q)}’ 검색 결과 모두 보기</a></div>`;
       box.hidden = false;
     };
     input.addEventListener('input', () => {
@@ -1303,13 +1315,13 @@
     setPage(`
       <article class="nd-card nd-article nd-results">
         <h1>‘${esc(q)}’ 검색 결과</h1>
-        <div class="sub">문서 제목에서 찾습니다. 본문 내용 검색은 지원하지 않습니다.</div>
+        <div class="sub">문서 제목을 기준으로 검색합니다. 본문 내용 검색은 지원하지 않습니다.</div>
         <div id="nd-r-exact"></div>
-        <h2>이 말로 시작하는 제목 <span class="cnt" id="nd-r-pc"></span></h2>
+        <h2>검색어로 시작하는 문서 <span class="cnt" id="nd-r-pc"></span></h2>
         <ul class="nd-rlist" id="nd-r-prefix"><li><span class="nd-spin"></span></li></ul>
         <div id="nd-r-pmore"></div>
-        <h2>이 말이 들어간 제목 <span class="cnt" id="nd-r-cc"></span></h2>
-        <ul class="nd-rlist" id="nd-r-contains"><li><span class="nd-spin"></span> <span style="color:var(--nd-faint);font-size:13px">처음 검색할 때는 제목 목록을 읽느라 몇 초 걸릴 수 있습니다</span></li></ul>
+        <h2>검색어가 포함된 문서 <span class="cnt" id="nd-r-cc"></span></h2>
+        <ul class="nd-rlist" id="nd-r-contains"><li><span class="nd-spin"></span> <span style="color:var(--nd-faint);font-size:13px">첫 검색 시 전체 문서 목록을 불러오느라 몇 초 정도 걸릴 수 있습니다</span></li></ul>
         <div id="nd-r-cmore"></div>
       </article>`);
     if (!q) return;
@@ -1317,7 +1329,7 @@
     const loadPrefix = async (offset) => {
       const r = await api(`search?q=${encodeURIComponent(q)}&mode=prefix&limit=100&offset=${offset}`);
       if (offset === 0) {
-        $('#nd-r-prefix').innerHTML = r.items.length ? li(r.items) : '<li class="nd-empty">없음</li>';
+        $('#nd-r-prefix').innerHTML = r.items.length ? li(r.items) : '<li class="nd-empty">일치하는 문서가 없습니다.</li>';
         if (r.exact) $('#nd-r-exact').innerHTML = `<div class="nd-exact">${I.doc}<a href="${docUrl(r.exact)}" data-title="${esc(r.exact)}">${esc(r.exact)}</a><span style="color:var(--nd-muted);font-size:13px">제목이 정확히 일치하는 문서</span></div>`;
       } else $('#nd-r-prefix').insertAdjacentHTML('beforeend', li(r.items));
       $('#nd-r-pc').textContent = $('#nd-r-prefix').querySelectorAll('a').length + (r.more ? '+' : '') + '개';
@@ -1326,7 +1338,7 @@
     };
     const loadContains = async (offset) => {
       const r = await api(`search?q=${encodeURIComponent(q)}&mode=contains&limit=200&offset=${offset}`);
-      if (offset === 0) $('#nd-r-contains').innerHTML = r.items.length ? li(r.items) : '<li class="nd-empty">없음</li>';
+      if (offset === 0) $('#nd-r-contains').innerHTML = r.items.length ? li(r.items) : '<li class="nd-empty">일치하는 문서가 없습니다.</li>';
       else $('#nd-r-contains').insertAdjacentHTML('beforeend', li(r.items));
       $('#nd-r-cc').textContent = $('#nd-r-contains').querySelectorAll('a').length + (r.more ? '+' : '') + '개';
       $('#nd-r-cmore').innerHTML = r.more ? '<button class="nd-btn" style="margin-top:10px">더 보기</button>' : '';
@@ -1370,6 +1382,7 @@
   // ── 서랍(최근 본 문서, 즐겨찾기) ────────────────────────
   let drawerTab = 'history';
   let drawerCloseT = null;
+  let drawerSeq = 0;
   const DRAWER_TABS = ['history', 'bookmarks'];
   // 탭 단추 뒤의 흰 선택 표시를 고른 단추 자리로 옮긴다(처음 열 때는 애니메이션 없이 바로)
   function moveDrawerPill(instant) {
@@ -1381,47 +1394,71 @@
     tabs.style.setProperty('--pill-w', on.offsetWidth + 'px');
     if (instant) requestAnimationFrame(() => tabs.classList.remove('no-anim'));
   }
+  function drawerItemHtml(title, rightHtml) {
+    const ns = nsOf(title);
+    const name = ns ? title.slice(ns.length + 1) : title;
+    const badge = ns ? `<span class="ns">${esc(ns)}</span>` : '';
+    return `<div class="nd-li"><a class="nd-li-a" href="${docUrl(title)}" data-title="${esc(title)}" title="${esc(title)}">${I.doc}<span class="nd-li-t">${esc(name)}</span>${badge}</a>${rightHtml}</div>`;
+  }
+  function drawerEmptyHtml(icon, title, desc, actionHtml) {
+    return `<div class="nd-drawer-empty"><div class="nd-empty-ic">${icon}</div><div class="nd-empty-t">${title}</div><p class="nd-empty-d">${desc}</p>${actionHtml || ''}</div>`;
+  }
   async function openDrawer(tab) {
     const drawer = $('#nd-drawer'), scrim = $('#nd-scrim');
     const wasOpen = !drawer.hidden && !drawer.classList.contains('closing');
     const prevTab = drawerTab;
     drawerTab = tab || drawerTab;
+    const seq = ++drawerSeq;
     clearTimeout(drawerCloseT);
     drawer.classList.remove('closing'); scrim.classList.remove('closing');
     scrim.hidden = false; drawer.hidden = false;
     $$('#nd-drawer-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === drawerTab));
     moveDrawerPill(!wasOpen);
-    // 열린 채로 탭을 바꾸면 목록이 옮겨 가는 쪽에서 밀려 들어온다
+    // 열린 채로 탭을 바꾸면 데이터를 받아 온 뒤 새 목록이 이동 방향에서 부드럽게 밀려 들어오게 한다
     const slide = wasOpen && prevTab !== drawerTab ? (DRAWER_TABS.indexOf(drawerTab) > DRAWER_TABS.indexOf(prevTab) ? 'from-right' : 'from-left') : '';
     const box = $('#nd-drawer-list');
-    box.classList.remove('from-right', 'from-left');
-    if (slide) { void box.offsetWidth; box.classList.add(slide); }
     const foot = $('#nd-drawer-foot');
-    foot.hidden = true; foot.innerHTML = '';
-    box.innerHTML = '<div class="nd-empty"><span class="nd-spin"></span></div>';
+    const spinT = !box.innerHTML ? setTimeout(() => {
+      if (seq === drawerSeq && !box.innerHTML) box.innerHTML = '<div class="nd-drawer-empty"><span class="nd-spin"></span></div>';
+    }, 80) : 0;
+    const animateIn = () => {
+      clearTimeout(spinT);
+      box.classList.remove('from-right', 'from-left');
+      if (slide) { void box.offsetWidth; box.classList.add(slide); }
+    };
     try {
       if (drawerTab === 'history') {
         const h = await api('history');
-        const offNote = S.settings.record_history === false ? '<div class="nd-empty" style="padding:12px 10px">방문 기록 남기기가 꺼져 있습니다. 설정에서 다시 켤 수 있습니다.</div>' : '';
-        if (!h.length) { box.innerHTML = offNote || '<div class="nd-empty" style="padding:20px">아직 읽은 문서가 없습니다.</div>'; return; }
+        if (seq !== drawerSeq) return;
+        const recOff = S.settings.record_history === false;
+        if (!h.length) {
+          foot.hidden = true; foot.innerHTML = '';
+          box.innerHTML = recOff
+            ? drawerEmptyHtml(I.clock, '방문 기록 저장이 꺼져 있습니다', '설정에서 방문 기록 저장을 켜면<br>열람한 문서가 이곳에 기록됩니다.', '<button type="button" class="nd-btn nd-sm-btn" data-open-settings>설정 열기</button>')
+            : drawerEmptyHtml(I.clock, '아직 읽은 문서가 없습니다', '문서를 열람하면 이곳에 날짜별로 기록되어<br>언제든 다시 찾아볼 수 있습니다.');
+          animateIn();
+          return;
+        }
         let last = '';
-        let html = offNote;
+        let html = recOff ? `<div class="nd-drawer-notice">${I.clock}<span>방문 기록 저장이 꺼져 있습니다</span><button type="button" data-open-settings>설정</button></div>` : '';
         h.forEach((x) => {
           const d = new Date(x.visited_at * 1000);
           const key = d.toDateString();
           if (key !== last) { last = key; html += `<div class="nd-daysep">${dayLabel(d)}</div>`; }
-          html += `<div class="nd-li"><a href="${docUrl(x.title)}" data-title="${esc(x.title)}" title="${esc(x.title)}">${esc(x.title)}</a><small>${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}</small></div>`;
+          const time = `<small>${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}</small>`;
+          html += drawerItemHtml(x.title, time);
         });
         box.innerHTML = html;
-        foot.innerHTML = `<span class="cnt">${h.length}개</span><button class="nd-btn" id="nd-clear-h">${I.trash}기록 지우기</button>`;
+        foot.innerHTML = `<span class="cnt">총 ${h.length}개</span><button class="nd-btn nd-sm-btn" id="nd-clear-h">${I.trash}기록 지우기</button>`;
         foot.hidden = false;
+        animateIn();
         // 되돌릴 수 없으므로 한 번 더 눌러야 지운다(목록 끝을 굴리다 잘못 눌러 지워지는 일이 있었다)
         const clr = $('#nd-clear-h');
         let armT = null;
         clr.onclick = async () => {
           if (!clr.classList.contains('armed')) {
             clr.classList.add('armed');
-            clr.innerHTML = `${I.trash}한 번 더 누르면 모두 지웁니다`;
+            clr.innerHTML = `${I.trash}한 번 더 누르면 모두 삭제됩니다`;
             armT = setTimeout(() => { clr.classList.remove('armed'); clr.innerHTML = `${I.trash}기록 지우기`; }, 3000);
             return;
           }
@@ -1429,15 +1466,26 @@
           await api('history', { clear: true });
           openDrawer('history');
           if (location.pathname === '/') refreshHomeLists();
-          toast('기록을 지웠습니다.');
+          toast('방문 기록을 모두 지웠습니다.');
         };
       } else {
         const b = await api('bookmarks');
+        if (seq !== drawerSeq) return;
         S.bookmarks = new Set(b.map((x) => x.title));
-        if (!b.length) { box.innerHTML = '<div class="nd-empty" style="padding:20px">즐겨찾기한 문서가 없습니다. 문서를 열고 별 단추를 누르세요.</div>'; return; }
-        box.innerHTML = b.map((x) => `<div class="nd-li"><a href="${docUrl(x.title)}" data-title="${esc(x.title)}" title="${esc(x.title)}">${esc(x.title)}</a><button class="nd-ib nd-sm" data-unbm="${esc(x.title)}" title="빼기">${I.close}</button></div>`).join('');
+        foot.hidden = true; foot.innerHTML = '';
+        if (!b.length) {
+          box.innerHTML = drawerEmptyHtml(I.star, '즐겨찾기한 문서가 없습니다', '문서 상단의 별 아이콘을 눌러<br>자주 보는 문서를 저장해 보세요.');
+          animateIn();
+          return;
+        }
+        box.innerHTML = b.map((x) => drawerItemHtml(x.title, `<button class="nd-ib nd-sm" data-unbm="${esc(x.title)}" title="즐겨찾기 해제">${I.close}</button>`)).join('');
+        animateIn();
       }
-    } catch (e) { box.innerHTML = `<div class="nd-empty">${esc(e.message)}</div>`; }
+    } catch (e) {
+      if (seq !== drawerSeq) return;
+      foot.hidden = true; foot.innerHTML = '';
+      box.innerHTML = `<div class="nd-empty">${esc(e.message)}</div>`;
+    }
   }
   function dayLabel(d) {
     const today = new Date(); const y = new Date(Date.now() - 86400000);
@@ -1464,23 +1512,35 @@
   function sw(name, on) { return `<label class="nd-switch"><input type="checkbox" data-sw="${name}" ${on ? 'checked' : ''}><span></span></label>`; }
   function openSettings() {
     const s = S.settings, st = S.status || {}, m = st.meta || {};
+    const platName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[st.platform] || '';
+    const platBadge = platName ? `<span class="nd-badge muted">${platName}${st.arch ? ' ' + esc(st.arch) : ''}</span>` : '';
+    const copyright = st.copyright || ('© 2026 ' + (st.author || 'Hishydrogen'));
     $('#nd-modal-b').innerHTML = `
-      <div class="nd-row"><div class="l">화면 모드<small>시스템은 운영체제의 라이트, 다크 설정을 따릅니다</small></div>${seg('theme', [['system', '시스템'], ['light', '라이트'], ['dark', '다크']], s.theme || 'system')}</div>
-      <div class="nd-row"><div class="l">글꼴<small>기본은 앱에 들어 있는 Pretendard입니다</small></div><select class="nd-select" id="nd-font">${fontOptions(s.font || 'pretendard', [])}</select></div>
+      <div class="nd-row"><div class="l">화면 모드<small>시스템 설정에 맞춰 라이트 모드와 다크 모드를 자동으로 전환합니다</small></div>${seg('theme', [['system', '시스템'], ['light', '라이트'], ['dark', '다크']], s.theme || 'system')}</div>
+      <div class="nd-row"><div class="l">글꼴<small>기본 글꼴은 앱에 내장된 Pretendard입니다</small></div><select class="nd-select" id="nd-font">${fontOptions(s.font || 'pretendard', [])}</select></div>
       <div class="nd-row"><div class="l">글자 크기<small id="nd-fs-v">${s.font_size || 15}px</small></div><input type="range" min="13" max="22" step="1" value="${s.font_size || 15}" id="nd-fs"></div>
       <div class="nd-row"><div class="l">본문 너비</div>${seg('width', [['narrow', '좁게'], ['normal', '보통'], ['wide', '넓게']], s.width || 'normal')}</div>
-      <div class="nd-row"><div class="l">옆 목차<small>넓은 창에서 오른쪽에 목차를 띄웁니다</small></div>${sw('toc_sidebar', s.toc_sidebar !== false)}</div>
-      <div class="nd-row"><div class="l">방문 기록 남기기<small>끄면 읽은 문서를 기록하지 않습니다. 이미 남은 기록은 목록에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
-      <div class="nd-row"><div class="l">없는 문서 링크 표시<small>덤프에 없는 문서로 가는 링크를 빨갛게 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
+      <div class="nd-row"><div class="l">오른쪽 목차 표시<small>창이 넓을 때 본문 오른쪽에 목차를 고정해 표시합니다</small></div>${sw('toc_sidebar', s.toc_sidebar !== false)}</div>
+      <div class="nd-row"><div class="l">방문 기록 저장<small>열람한 문서를 보관함에 기록합니다. 기존 기록은 보관함에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
+      <div class="nd-row"><div class="l">없는 문서 링크 구분<small>덤프에 없는 문서로 연결된 링크를 빨간색으로 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
       <div class="nd-sub-h">덤프 파일</div>
-      <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '없음')}</code><br>${st.doc_count ? fmtNum(st.doc_count) + '개 문서' : ''}${m.generated_at_iso ? ', 생성 ' + esc(m.generated_at_iso.replace('T', ' ')) : ''}</div><button class="nd-btn" id="nd-change-db">${I.folder}다른 파일</button></div>
+      <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><button class="nd-btn" id="nd-change-db">${I.folder}파일 변경</button></div>
       <div class="nd-sub-h">정보</div>
-      <div class="nd-kv nd-about-kv">
-        <b>나무덤프 ${esc(st.version || '')}</b><br>나무위키 덤프를 인터넷 없이 읽는 프로그램입니다.<br>
-        © 2026 ${esc(st.author || '')}. 코드는 MIT 라이선스로 공개되어 있습니다.${st.homepage ? `<br><a class="nd-ext-plain" href="${esc(st.homepage)}" target="_blank" rel="noopener">${esc(st.homepage.replace(/^https?:\/\//, ''))}</a>` : ''}<br><br>
-        문서 출처 ${esc(m.source || 'https://namu.wiki')}, 작성 ${esc(m.attribution || '나무위키 기여자')}.<br>
-        문서 내용은 ${esc(m.license || 'CC BY-NC-SA 2.0 KR')}에 따라 비영리 목적으로만 이용할 수 있습니다.<br>
-        Electron(MIT), 수식 표시에 KaTeX(MIT), 글꼴 Pretendard(SIL OFL 1.1)를 씁니다. 나무위키와 관계없는 비공식 프로그램입니다.</div>
+      <div class="nd-about-card">
+        <div class="nd-about-head">
+          <img class="nd-about-logo" src="/icon.png" alt="나무덤프" width="42" height="42">
+          <div class="nd-about-main">
+            <div class="nd-about-title"><b>나무덤프</b>${st.version ? `<span class="nd-badge">v${esc(st.version)}</span>` : ''}${platBadge}</div>
+            <div class="nd-about-copy">${esc(copyright)} (MIT License)</div>
+          </div>
+          ${st.homepage ? `<a class="nd-btn nd-sm-btn" href="${esc(st.homepage)}" target="_blank" rel="noopener">GitHub</a>` : ''}
+        </div>
+        <div class="nd-kv nd-about-kv">
+          인터넷 연결 없이 나무위키 덤프 파일을 열람하는 오프라인 뷰어입니다.<br>
+          문서 내용의 저작권은 ${esc(m.attribution || '나무위키 기여자')}에게 있으며, <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">${esc(m.license || 'CC BY-NC-SA 2.0 KR')}</a> 라이선스에 따라 비영리 목적으로만 이용할 수 있습니다.<br>
+          오픈소스 소프트웨어로 Electron(MIT), 수식 렌더링용 KaTeX(MIT), 글꼴 Pretendard(SIL OFL 1.1)를 사용합니다. 나무위키 운영사와 관련 없는 비공식 프로그램입니다.
+        </div>
+      </div>
       ${S.native ? '' : `<div style="margin-top:18px;text-align:right"><button class="nd-btn" id="nd-quit">나무덤프 종료</button></div>`}`;
     showModal();
     $$('#nd-modal-b .nd-seg').forEach((g) => g.addEventListener('click', (e) => {
@@ -1572,7 +1632,7 @@
         if (findHits.length > 3000) break;
       }
     });
-    $('#nd-find-n').textContent = findHits.length ? '' : '없음';
+    $('#nd-find-n').textContent = findHits.length ? '' : '결과 없음';
     if (findHits.length) stepFind(1);
   }
   function stepFind(dir) {
@@ -1666,6 +1726,11 @@
     if (!mod && !inField && e.key === '/') { e.preventDefault(); const q = $('#nd-bigq') || $('#nd-q'); q.focus(); return; }
     if (!mod && e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); history.back(); }
     if (!mod && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); history.forward(); }
+  });
+  // 마우스 옆 버튼(3번 뒤로, 4번 앞으로) 지원
+  window.addEventListener('mouseup', (e) => {
+    if (e.button === 3) { e.preventDefault(); history.back(); }
+    else if (e.button === 4) { e.preventDefault(); history.forward(); }
   });
 
   // 패널 안에서 굴린 스크롤이 끝에 닿아도 뒤 문서로 넘어가지 않게 한다.
@@ -1767,6 +1832,8 @@
     $('#nd-lists').innerHTML = I.list; $('#nd-settings').innerHTML = I.gear;
     $('#nd-totop').innerHTML = I.up;
     $$('#nd-drawer-close, #nd-modal-close, #nd-find-close').forEach((b) => { b.innerHTML = I.close; });
+    $('#nd-drawer-tabs [data-tab="history"]').innerHTML = I.clock + '<span>최근 본 문서</span>';
+    $('#nd-drawer-tabs [data-tab="bookmarks"]').innerHTML = I.star + '<span>즐겨찾기</span>';
     $('#nd-find-prev').innerHTML = I.up; $('#nd-find-next').innerHTML = I.down;
     $('#nd-q-kbd').textContent = IS_MAC ? '⌘K' : 'Ctrl K';
     // 맥이 아니면 단추 설명의 단축키를 Ctrl로 적는다
@@ -1783,8 +1850,13 @@
     $('#nd-totop').onclick = () => quickScrollTo(0);
     $('#nd-scrim').onclick = closeDrawer;
     $('#nd-drawer-close').onclick = closeDrawer;
-    $('#nd-drawer-tabs').onclick = (e) => { const b = e.target.closest('button'); if (b) openDrawer(b.dataset.tab); };
+    $('#nd-drawer-tabs').onclick = (e) => { const b = e.target.closest('button'); if (b && b.dataset.tab !== drawerTab) openDrawer(b.dataset.tab); };
     $('#nd-drawer-b').addEventListener('click', async (e) => {
+      if (e.target.closest('[data-open-settings]')) {
+        closeDrawer();
+        openSettings();
+        return;
+      }
       const b = e.target.closest('[data-unbm]'); if (!b) return;
       await api('bookmark', { title: b.dataset.unbm, on: false });
       S.bookmarks.delete(b.dataset.unbm);

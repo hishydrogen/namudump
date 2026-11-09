@@ -16,12 +16,12 @@
 <header class="nd-topbar" id="nd-topbar">
   <div class="nd-topbar-in">
     <div class="nd-navbtns">
-      <button class="nd-ib" id="nd-back" title="뒤로 (⌘[)" aria-label="뒤로"></button>
-      <button class="nd-ib" id="nd-fwd" title="앞으로 (⌘])" aria-label="앞으로"></button>
-      <button class="nd-ib" id="nd-home" title="처음 화면 (⌘⇧H)" aria-label="처음 화면"></button>
+      <button class="nd-ib" id="nd-back" title="뒤로 이동 (⌘[)" aria-label="뒤로 이동"></button>
+      <button class="nd-ib" id="nd-fwd" title="앞으로 이동 (⌘])" aria-label="앞으로 이동"></button>
+      <button class="nd-ib" id="nd-home" title="홈 화면 (⌘⇧H)" aria-label="홈 화면"></button>
     </div>
     <div class="nd-brand-slot">
-      <a class="nd-brand" href="/" data-route title="처음 화면">
+      <a class="nd-brand" href="/" data-route title="홈 화면">
         <span class="nd-brand-t">나무덤프</span><span class="nd-brand-doc" id="nd-brand-doc"></span>
       </a>
     </div>
@@ -32,9 +32,9 @@
       <div class="nd-sugg" id="nd-sugg" role="listbox" hidden></div>
     </div>
     <div class="nd-actions">
-      <button class="nd-ib" id="nd-star" title="즐겨찾기 (⌘D)" aria-label="즐겨찾기" style="visibility:hidden" disabled></button>
-      <button class="nd-ib" id="nd-random" title="아무 문서나 열기 (⌘R)" aria-label="임의 문서"></button>
-      <button class="nd-ib" id="nd-lists" title="보관함: 최근 본 문서, 즐겨찾기 (⌘Y)" aria-label="보관함"></button>
+      <button class="nd-ib" id="nd-star" title="즐겨찾기에 추가 (⌘D)" aria-label="즐겨찾기" style="visibility:hidden" disabled></button>
+      <button class="nd-ib" id="nd-random" title="무작위 문서 열기 (⌘R)" aria-label="무작위 문서 열기"></button>
+      <button class="nd-ib" id="nd-lists" title="보관함 (⌘Y)" aria-label="보관함"></button>
       <button class="nd-ib" id="nd-theme" title="화면 모드" aria-label="화면 모드"></button>
       <button class="nd-ib" id="nd-settings" title="설정 (⌘,)" aria-label="설정"></button>
     </div>
@@ -55,10 +55,10 @@
 </main>
 
 <div class="nd-find" id="nd-find" hidden>
-  <input id="nd-find-q" type="search" placeholder="문서 안에서 찾기" autocomplete="off" spellcheck="false">
+  <input id="nd-find-q" type="search" placeholder="문서에서 찾기" autocomplete="off" spellcheck="false" aria-label="문서에서 찾기">
   <span class="nd-find-n" id="nd-find-n"></span>
-  <button class="nd-ib nd-sm" id="nd-find-prev" title="이전 (⇧↩)" aria-label="이전"></button>
-  <button class="nd-ib nd-sm" id="nd-find-next" title="다음 (↩)" aria-label="다음"></button>
+  <button class="nd-ib nd-sm" id="nd-find-prev" title="이전 결과 (⇧↩)" aria-label="이전 결과"></button>
+  <button class="nd-ib nd-sm" id="nd-find-next" title="다음 결과 (↩)" aria-label="다음 결과"></button>
   <button class="nd-ib nd-sm" id="nd-find-close" title="닫기 (Esc)" aria-label="닫기"></button>
 </div>
 

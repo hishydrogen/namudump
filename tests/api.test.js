@@ -96,6 +96,14 @@ test('덤프가 아닌 파일은 열지 않는다', () => {
   const other = new App(new UserStore(path.join(tmp, 'support2')), {});
   assert.equal(other.openDump(bad), false);
   assert.match(other.dumpError, /SQLite|덤프/);
+
+  const mdOnly = path.join(tmp, 'namu-md.sqlite');
+  const mdb = new DatabaseSync(mdOnly);
+  mdb.exec('CREATE TABLE docs(id INTEGER PRIMARY KEY, title TEXT NOT NULL, md BLOB NOT NULL);');
+  mdb.close();
+  assert.equal(other.openDump(mdOnly), false);
+  assert.match(other.dumpError, /namu-html\.sqlite/);
+  other.store.close();
 });
 
 test('화면 주소는 index.html이 그리고, CSP로 유튜브 썸네일 말고는 외부 그림을 막는다', async () => {
