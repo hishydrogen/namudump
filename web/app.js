@@ -153,7 +153,7 @@
     const menu = document.getElementById('nd-theme-menu');
     if (menu && !menu.hidden) renderThemeMenu(menu);
     const segEl = document.querySelector('#nd-set-b [data-set="theme"]');
-    if (segEl) segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === mode));
+    if (segEl) { segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === mode)); movePill(segEl); }
     applyDarkStyles(document.querySelector('.nd-content'));
     syncWindowBg();
   }
@@ -1473,8 +1473,10 @@
   let drawerSeq = 0;
   const DRAWER_TABS = ['history', 'bookmarks'];
   // 탭 단추 뒤의 흰 선택 표시를 고른 단추 자리로 옮긴다(처음 열 때는 애니메이션 없이 바로)
-  function moveDrawerPill(instant) {
-    const tabs = $('#nd-drawer-tabs');
+  function moveDrawerPill(instant) { movePill($('#nd-drawer-tabs'), instant); }
+  // 단추 묶음의 선택 표시(::before)를 고른 단추 자리로 옮긴다. 보이기 전에는 크기를 잴 수 없으니 보인 뒤에 부른다
+  function movePill(tabs, instant) {
+    if (!tabs) return;
     const on = tabs.querySelector('button.on');
     if (!on) return;
     tabs.classList.toggle('no-anim', !!instant);
@@ -1598,7 +1600,7 @@
 
   // ── 설정 및 정보 창 ─────────────────────────────────────
   function seg(name, opts, cur) {
-    return `<div class="nd-seg" data-set="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    return `<div class="nd-seg pill" data-set="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   }
   function sw(name, on) { return `<label class="nd-switch"><input type="checkbox" data-sw="${name}" ${on ? 'checked' : ''}><span></span></label>`; }
   function openAbout() {
@@ -1686,9 +1688,11 @@
     panel.hidden = false;
     $('#nd-set-b').scrollTop = 0;
     $('#nd-set-about').onclick = () => { closeSettings(); openAbout(); };
+    $$('#nd-set-b .nd-seg').forEach((g) => movePill(g, true));
     $$('#nd-set-b .nd-seg').forEach((g) => g.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
       $$('button', g).forEach((x) => x.classList.toggle('on', x === b));
+      movePill(g);
       saveSettings({ [g.dataset.set]: b.dataset.v });
     }));
     $('#nd-fs').oninput = (e) => { $('#nd-fs-v').textContent = e.target.value + 'px'; S.settings.font_size = +e.target.value; applyLayout(); };

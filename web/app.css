@@ -419,13 +419,16 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-scrim.closing { animation: ndfadeout var(--nd-t-out) var(--nd-ease-in) forwards; pointer-events: none; }
 @keyframes ndslideout { to { transform: translateX(30px); opacity: 0; } }
 @keyframes ndfadeout { to { opacity: 0; } }
-#nd-drawer-tabs { position: relative; }
-#nd-drawer-tabs::before {
+/* 선택 표시가 미끄러지는 단추 묶음: 보관함 탭과 설정의 화면 모드, 본문 너비(app.js의 movePill) */
+#nd-drawer-tabs, .nd-seg.pill { position: relative; }
+#nd-drawer-tabs::before, .nd-seg.pill::before {
   content: ""; position: absolute; top: 3px; bottom: 3px; left: 0; width: var(--pill-w, 0); transform: translateX(var(--pill-x, 0));
   background: var(--nd-card); border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
   transition: transform .22s var(--nd-ease), width .22s var(--nd-ease);
 }
-#nd-drawer-tabs.no-anim::before { transition: none; }
+#nd-drawer-tabs.no-anim::before, .nd-seg.pill.no-anim::before { transition: none; }
+.nd-seg.pill button { position: relative; transition: color var(--nd-t-in) var(--nd-ease); }
+.nd-seg.pill button.on { background: transparent; box-shadow: none; }
 #nd-drawer-tabs button { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; transition: color var(--nd-t-in) var(--nd-ease); }
 #nd-drawer-tabs button svg { width: 15px; height: 15px; flex: none; opacity: .75; transition: opacity var(--nd-t-in) var(--nd-ease), color var(--nd-t-in) var(--nd-ease); }
 #nd-drawer-tabs button.on { background: transparent; box-shadow: none; }
@@ -438,7 +441,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 @media (prefers-reduced-motion: reduce) {
   .nd-drawer, .nd-scrim, .nd-drawer.closing, .nd-scrim.closing, .nd-drawer-list.from-right, .nd-drawer-list.from-left,
   .nd-modal, .nd-modal-card, .nd-modal.closing, .nd-modal.closing .nd-modal-card { animation: none; }
-  #nd-drawer-tabs::before { transition: none; }
+  #nd-drawer-tabs::before, .nd-seg.pill::before { transition: none; }
   .nd-find, .nd-pop, .nd-toast, .nd-sugg, .nd-update { animation: none; }
 }
 .nd-drawer-h { height: var(--nd-top-h); flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; border-bottom: 1px solid var(--nd-line); }
