@@ -571,6 +571,7 @@
     // 홈과 시작 안내 화면에서는 상단 막대의 검색창을 숨겨 본문과 겹치지 않게 한다
     const topSearch = $('#nd-search');
     if (topSearch) topSearch.classList.toggle('is-hidden', !!opts.hideTopSearch);
+    $('#nd-topbar').classList.toggle('is-home', !!opts.home);
     // 문서 CSS는 지금 문서(#nd-main 안)에만 듣게 한다. 미리 보기 쪽은 따로 범위를 바꿔 넣는다
     // :where()는 우선순위를 올리지 않아 원래 CSS와 같은 세기로 듣는다
     $('#nd-wiki-css').textContent = (opts.css || '').replace(/\.nd-content(?![\w-])/g, ':where(#nd-main) .nd-content');
@@ -598,21 +599,21 @@
         <div class="nd-hero">
           <div class="nd-hero-logo"></div>
           <h1 class="nd-hero-title">나무덤프</h1>
-          <div class="nd-hero-sub">${dumpDate() ? `<span>${dumpDate()} 기준 덤프</span><span class="dot">·</span>` : ''}<span>문서 ${fmtNum(st.doc_count)}개</span></div>
+          <p class="nd-hero-sub">인터넷 없이 읽는 나무위키</p>
         </div>
         <div class="nd-bigsearch" id="nd-bigsearch">
           <span class="ic">${I.search}</span>
-          <input id="nd-bigq" type="search" placeholder="문서 제목 검색…" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
+          <input id="nd-bigq" type="search" placeholder="${st.doc_count ? `문서 ${fmtNum(st.doc_count)}개에서 제목 검색…` : '문서 제목 검색…'}" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
           <kbd class="nd-kbd">${kbd}</kbd>
           <div class="nd-sugg" id="nd-bigsugg" hidden></div>
         </div>
         <div class="nd-home-acts">
           <button type="button" class="nd-pill-act" id="nd-home-random">${I.shuffle}<span>무작위 문서</span></button>
           <button type="button" class="nd-pill-act" id="nd-home-lists-btn">${I.list}<span>보관함</span></button>
-          <button type="button" class="nd-pill-act" id="nd-home-dump" title="다른 덤프 파일 열기">${I.folder}<span>덤프 변경</span></button>
+          <button type="button" class="nd-pill-act nd-dump-pill" id="nd-home-dump" title="다른 덤프 파일 열기">${I.folder}<span>${dumpDate() ? esc(dumpDate()) + ' 덤프' : '덤프 변경'}</span></button>
         </div>
         <div class="nd-home-lists" id="nd-home-lists"></div>
-      </div>`, { side: false, hideTopSearch: true });
+      </div>`, { side: false, hideTopSearch: true, home: true });
     const bq = $('#nd-bigq');
     attachSuggest(bq, $('#nd-bigsugg'));
     setTimeout(() => bq.focus(), 30);
@@ -1606,7 +1607,7 @@
     $('#nd-modal-b').innerHTML = `
       <div class="nd-about-sheet">
         <div class="nd-about-hero">
-          <img class="nd-about-hero-logo" src="/icon.png" alt="나무덤프" width="72" height="72">
+          <span class="nd-appicon nd-about-hero-logo" role="img" aria-label="나무덤프"></span>
           <h3 class="nd-about-hero-name">나무덤프</h3>
           <p class="nd-about-hero-tag">인터넷 연결 없이 읽는 나무위키 오프라인 덤프 뷰어</p>
           <div class="nd-about-badges">
@@ -2054,7 +2055,7 @@
     box.setAttribute('aria-label', '새 버전 알림');
     box.innerHTML = `
       <div class="nd-update-h">
-        <img src="/icon.png" alt="" width="36" height="36">
+        <span class="nd-appicon" aria-hidden="true"></span>
         <div class="t"><b>나무덤프 ${esc(r.latest)} 버전이 나왔습니다</b><small>지금 사용 중인 버전은 ${esc(r.current)}입니다</small></div>
         <button class="x" data-upd="later" title="닫기" aria-label="닫기">${I.close}</button>
       </div>

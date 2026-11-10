@@ -71,6 +71,12 @@ npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm
 - **아이콘 구성**
   - 아이콘은 가운데 잎맥을 따라 접힌 나뭇잎 하나가 펼쳐진 책처럼 보이도록 디자인했습니다. 밝은 오른쪽 면에는 세 줄의 틈을 내어 본문 글줄을 형상화했습니다.
   - **macOS**: Xcode Icon Composer 원본(`build/AppIcon.icon`)에서 컴파일한 `Assets.car`(macOS 26 이상 Liquid Glass 아이콘)와 `AppIcon.icns`(하위 macOS 및 `.dmg` 볼륨 아이콘)를 사용합니다. 빌드 결과물이 저장소에 포함되어 있어 아이콘 자체를 수정하지 않는 한 빌드 시 Xcode가 필요하지 않습니다.
+  - **앱 화면 속 아이콘(macOS)**: 홈 화면, 정보 창, 업데이트 알림에는 Dock과 같은 Liquid Glass 아이콘을 미리 렌더링한 `web/icon-mac.png`(밝은 모드), `web/icon-mac-dark.png`(어두운 모드)를 씁니다(`app.css`의 `--nd-app-icon`). 아이콘을 고치면 Icon Composer 안의 `ictool`로 다시 만듭니다.
+    ```bash
+    IC="/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool"
+    "$IC" build/AppIcon.icon --export-image --output-file web/icon-mac.png --platform macOS --rendition Default --width 128 --height 128 --scale 2
+    "$IC" build/AppIcon.icon --export-image --output-file web/icon-mac-dark.png --platform macOS --rendition Dark --width 128 --height 128 --scale 2
+    ```
   - **Windows, Linux, 웹 화면, README**: 동일한 형태를 단색 플랫 스타일로 그린 `build/icon-flat.svg` 기반의 `build/icon.png`(1024px), `docs/icon.png`(512px), `web/icon.png`(256px)를 사용합니다.
 - **코드 서명**: macOS 빌드는 임시(ad-hoc) 서명만 수행하며 Apple 공증(Notarization)은 거치지 않습니다. Windows 설치 파일 역시 별도 인증서 서명을 하지 않으므로 최초 실행 시 안내를 README에 수록했습니다.
 - **Windows 설치 프로그램**: NSIS 원클릭 방식(`oneClick: true`, `perMachine: false`)으로, 마법사 없이 `%LOCALAPPDATA%\Programs`에 설치하고 바로 실행합니다. 3.1.x까지의 마법사에서 '모든 사용자'로 설치한 기록(HKLM)이 있으면 `build/installer.nsh`의 `customInit`이 이전 버전을 따로 제거하도록 안내합니다.

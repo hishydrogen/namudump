@@ -150,6 +150,8 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-brand-slot { width: 290px; flex: none; min-width: 0; margin-right: 6px; display: flex; align-items: center; }
 .nd-brand { position: relative; display: inline-flex; align-items: center; gap: 9px; color: var(--nd-text); font-weight: 700; white-space: nowrap; padding: 5px 8px 5px 5px; margin-left: -5px; border-radius: 10px; }
 .nd-brand:hover { background: var(--nd-hover); }
+/* 홈 화면: 가운데에 로고와 무작위 문서, 보관함 단추가 있으므로 상단 막대의 같은 것은 숨긴다(자리는 남겨 다른 단추가 밀리지 않게) */
+.nd-topbar.is-home .nd-brand, .nd-topbar.is-home #nd-random, .nd-topbar.is-home #nd-lists { visibility: hidden; }
 .nd-brand-t, .nd-brand-doc { transition: opacity var(--nd-t-in) var(--nd-ease), transform var(--nd-t-in) var(--nd-ease); }
 .nd-brand-doc {
   position: absolute; left: 5px; max-width: 240px; top: 50%; transform: translateY(-30%); opacity: 0; pointer-events: none;
@@ -260,17 +262,24 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-docfoot { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--nd-line); font-size: 12.5px; color: var(--nd-faint); line-height: 1.6; }
 .nd-docfoot a { color: var(--nd-muted); }
 
+/* 앱 아이콘: 윈도우, 리눅스는 플랫 아이콘. 맥은 Dock과 같은 Liquid Glass 아이콘을 미리 렌더링한 것(밝은, 어두운 모드) */
+:root { --nd-app-icon: url(/icon.png); }
+:root.nd-mac { --nd-app-icon: url(/icon-mac.png); }
+:root.nd-mac[data-theme="dark"] { --nd-app-icon: url(/icon-mac-dark.png); }
+.nd-appicon { display: block; flex: none; background: var(--nd-app-icon) center/contain no-repeat; }
+
 /* ── 처음 화면: 로고 타이틀, 중앙 검색창, 빠른 동작, 2단 요약 카드 ── */
 .nd-home { max-width: 720px; margin: 0 auto; padding: clamp(32px, 9vh, 88px) 12px 48px; }
-.nd-hero { text-align: center; margin-bottom: 22px; }
+.nd-hero { text-align: center; margin-bottom: 26px; }
 .nd-hero-logo {
-  width: 64px; height: 64px; margin: 0 auto 12px;
-  background: url(/icon.png) center/contain no-repeat;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .08));
+  width: 72px; height: 72px; margin: 0 auto 14px;
+  background: var(--nd-app-icon) center/contain no-repeat;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .1));
 }
-.nd-hero-title { font-size: 24px; font-weight: 800; letter-spacing: -.03em; margin: 0; color: var(--nd-text); }
-.nd-hero-sub { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 13px; color: var(--nd-muted); }
-.nd-hero-sub .dot { color: var(--nd-faint); }
+/* 어두운 화면에서는 어두운 아이콘 판이 배경에 묻히지 않게 그림자를 조금 더 깊게 */
+:root[data-theme="dark"] .nd-hero-logo { filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .45)); }
+.nd-hero-title { font-size: 30px; font-weight: 700; letter-spacing: -.04em; line-height: 1.2; margin: 0; color: var(--nd-text); }
+.nd-hero-sub { margin: 6px 0 0; font-size: 14px; color: var(--nd-faint); }
 .nd-bigsearch { position: relative; max-width: 580px; margin: 0 auto; }
 .nd-bigsearch input {
   width: 100%; height: 52px; border-radius: 15px; border: 1px solid var(--nd-line); background: var(--nd-card);
@@ -294,6 +303,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-pill-act:active { transform: scale(.97); }
 .nd-pill-act svg { width: 14.5px; height: 14.5px; color: var(--nd-faint); transition: color .15s; }
 .nd-pill-act:hover svg { color: var(--nd-accent); }
+.nd-pill-act.nd-dump-pill { font-variant-numeric: tabular-nums; }
 .nd-home-lists {
   margin-top: 32px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
 }
@@ -501,7 +511,8 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
   border-radius: 14px; background: linear-gradient(180deg, var(--nd-accent-soft), transparent 85%);
   border: 1px solid var(--nd-line);
 }
-.nd-about-hero-logo { width: 68px; height: 68px; border-radius: 16px; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .12)); }
+.nd-about-hero-logo { width: 68px; height: 68px; margin: 0 auto; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .12)); }
+:root[data-theme="dark"] .nd-about-hero-logo { filter: drop-shadow(0 8px 20px rgba(0, 0, 0, .45)); }
 .nd-about-hero-name { margin: 10px 0 4px; font-size: 21px; font-weight: 800; letter-spacing: -.02em; color: var(--nd-text); }
 .nd-about-hero-tag { margin: 0; font-size: 13px; color: var(--nd-muted); }
 .nd-about-badges { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
@@ -586,7 +597,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 }
 .nd-update[hidden] { display: none; }
 .nd-update-h { display: flex; align-items: center; gap: 12px; }
-.nd-update-h img { flex: none; width: 36px; height: 36px; border-radius: 9px; }
+.nd-update-h .nd-appicon { width: 36px; height: 36px; }
 .nd-update-h .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .nd-update-h .t b { font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; }
 .nd-update-h .t small { font-size: 12px; color: var(--nd-muted); }
