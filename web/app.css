@@ -101,7 +101,7 @@ a:hover { text-decoration: underline; }
 [hidden] { display: none !important; }
 kbd { font-family: var(--nd-font); }
 
-/* UI 텍스트·링크·아이콘 보호: 본문과 오른쪽 목차를 제외한 앱 UI 요소는 긁히거나 링크 유령으로 끌리지 않게 한다 */
+/* UI 텍스트와 링크, 아이콘 보호: 본문과 오른쪽 목차를 제외한 앱 UI 요소는 긁히거나 링크 유령으로 끌리지 않게 한다 */
 .nd-topbar, .nd-home, .nd-onb, .nd-drawer, .nd-modal, .nd-find, .nd-menu, .nd-toast, .nd-totop, .nd-update,
 .nd-meta, .nd-cats, .nd-docfoot, .nd-side-h, button, kbd {
   -webkit-user-select: none; user-select: none;
@@ -144,7 +144,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-native .nd-topbar button, .nd-native .nd-topbar a, .nd-native .nd-topbar input, .nd-native .nd-search,
 .nd-native .nd-sugg, .nd-native .nd-scrim, .nd-native .nd-drawer, .nd-native .nd-modal, .nd-native .nd-pop,
 .nd-native .nd-find, .nd-native .nd-toast, .nd-native .nd-menu, .nd-native .nd-update { -webkit-app-region: no-drag; }
-/* 홈/온보딩에서 상단 검색창이 숨겨진 동안에는 그 자리도 잡고 창을 끌 수 있게 한다 */
+/* 홈과 시작 안내 화면에서 상단 검색창이 숨겨진 동안에는 그 자리도 잡고 창을 끌 수 있게 한다 */
 .nd-native .nd-search.is-hidden, .nd-native .nd-search.is-hidden input, .nd-native .nd-topbar.is-home .nd-brand,
 .nd-native .nd-topbar button:disabled { -webkit-app-region: drag; }
 .nd-native.nd-fullscreen .nd-topbar { -webkit-app-region: no-drag; }

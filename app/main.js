@@ -303,11 +303,11 @@ async function confirmNoSandbox() {
   if (fs.existsSync(NO_SANDBOX_OK)) return true;
   let apparmor = false;
   try { apparmor = fs.readFileSync('/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'utf8').trim() === '1'; } catch (e) { /* 없는 시스템 */ }
-  let detail = '이 시스템에서는 Chromium 보안 격리(샌드박스)를 쓸 수 없어 격리 없이 실행됩니다. ' +
+  let detail = '이 시스템에서는 Chromium 보안 격리(샌드박스)를 사용할 수 없어 격리 없이 실행됩니다. ' +
     '덤프 문서는 컴퓨터 안에서 읽지만, 문서 속 YouTube 동영상 등 인터넷에서 불러오는 콘텐츠도 격리 없이 실행됩니다.';
   if (apparmor) {
-    detail += '\n\n원인: Ubuntu 24.04 이후의 AppArmor가 일반 사용자의 사용자 네임스페이스 사용을 막고 있습니다. ' +
-      '아래 명령으로 허용할 수 있습니다. 시스템 전체에 적용되며, 재부팅하면 원래대로 돌아갑니다.\n\n' +
+    detail += '\n\n원인: Ubuntu 24.04 이후의 AppArmor가 일반 사용자의 사용자 네임스페이스 사용을 제한하고 있습니다. ' +
+      '아래 명령어를 실행하면 허용할 수 있습니다. 시스템 전체에 적용되며, 재부팅하면 원래대로 돌아갑니다.\n\n' +
       'sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0';
   }
   const r = await dialog.showMessageBox({

@@ -1626,8 +1626,8 @@
         </div>
         <div class="nd-about-specs">
           <div class="nd-about-spec">
-            <span class="k">문서 라이선스</span>
-            <span class="v">${esc(attr)} · <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">${esc(license)}</a> <small>(비영리 이용)</small></span>
+            <span class="k">문서 저작권</span>
+            <span class="v">${esc(attr)} (<a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">${esc(license)}</a>, 비영리 이용)</span>
           </div>
           <div class="nd-about-spec">
             <span class="k">오픈소스 구성</span>
@@ -1675,7 +1675,7 @@
       <div class="nd-sub-h">기록과 링크</div>
       <div class="nd-row"><div class="l">방문 기록 저장<small>열람한 문서를 보관함에 기록합니다. 기존 기록은 보관함에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
       <div class="nd-row"><div class="l">없는 문서 링크 구분<small>덤프에 없는 문서로 연결된 링크를 빨간색으로 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
-      ${window.ndNative ? `<div class="nd-sub-h">업데이트</div><div class="nd-row"><div class="l">새 버전 자동 확인<small>시작할 때와 몇 시간마다 GitHub에서 새 버전이 나왔는지 확인합니다. 앱 버전 외의 정보는 보내지 않습니다</small></div>${sw('update_check', s.update_check !== false)}</div>` : ''}
+      ${window.ndNative ? `<div class="nd-sub-h">업데이트</div><div class="nd-row"><div class="l">새 버전 자동 확인<small>시작할 때와 일정 시간마다 GitHub에서 새 버전을 확인합니다. 앱 버전 외의 정보는 보내지 않습니다</small></div>${sw('update_check', s.update_check !== false)}</div>` : ''}
       <div class="nd-sub-h">덤프 파일</div>
       <div class="nd-row stack"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><div class="nd-btns">${st.ready ? '<button class="nd-btn" id="nd-close-db">연결 해제</button>' : ''}<button class="nd-btn" id="nd-change-db">${I.folder}${st.ready ? '파일 변경' : '파일 선택'}</button></div></div>
       <div class="nd-sub-h">초기화</div>
