@@ -571,7 +571,10 @@
     // 홈과 시작 안내 화면에서는 상단 막대의 검색창을 숨겨 본문과 겹치지 않게 한다
     const topSearch = $('#nd-search');
     if (topSearch) topSearch.classList.toggle('is-hidden', !!opts.hideTopSearch);
-    $('#nd-topbar').classList.toggle('is-home', !!opts.home);
+    const bar = $('#nd-topbar');
+    bar.classList.toggle('is-home', !!opts.home);
+    // 첫 화면은 전환 없이 그린다(켜자마자 상단 막대의 단추가 사라지는 모습이 보이지 않게)
+    if (!setPage.drawn) { setPage.drawn = true; bar.classList.add('no-anim'); requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.remove('no-anim'))); }
     // 문서 CSS는 지금 문서(#nd-main 안)에만 듣게 한다. 미리 보기 쪽은 따로 범위를 바꿔 넣는다
     // :where()는 우선순위를 올리지 않아 원래 CSS와 같은 세기로 듣는다
     $('#nd-wiki-css').textContent = (opts.css || '').replace(/\.nd-content(?![\w-])/g, ':where(#nd-main) .nd-content');

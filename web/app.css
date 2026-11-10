@@ -139,7 +139,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-native .nd-sugg, .nd-native .nd-scrim, .nd-native .nd-drawer, .nd-native .nd-modal, .nd-native .nd-pop,
 .nd-native .nd-find, .nd-native .nd-toast, .nd-native .nd-menu, .nd-native .nd-update { -webkit-app-region: no-drag; }
 /* 홈/온보딩에서 상단 검색창이 숨겨진 동안에는 그 자리도 잡고 창을 끌 수 있게 한다 */
-.nd-native .nd-search.is-hidden, .nd-native .nd-search.is-hidden input,
+.nd-native .nd-search.is-hidden, .nd-native .nd-search.is-hidden input, .nd-native .nd-topbar.is-home .nd-brand,
 .nd-native .nd-topbar button:disabled { -webkit-app-region: drag; }
 .nd-native.nd-fullscreen .nd-topbar { -webkit-app-region: no-drag; }
 /* 맥: 신호등 단추 자리를 비운다 */
@@ -150,8 +150,19 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-brand-slot { width: 290px; flex: none; min-width: 0; margin-right: 6px; display: flex; align-items: center; }
 .nd-brand { position: relative; display: inline-flex; align-items: center; gap: 9px; color: var(--nd-text); font-weight: 700; white-space: nowrap; padding: 5px 8px 5px 5px; margin-left: -5px; border-radius: 10px; }
 .nd-brand:hover { background: var(--nd-hover); }
-/* 홈 화면: 가운데에 로고와 무작위 문서, 보관함 단추가 있으므로 상단 막대의 같은 것은 숨긴다(자리는 남겨 다른 단추가 밀리지 않게) */
-.nd-topbar.is-home .nd-brand, .nd-topbar.is-home #nd-random, .nd-topbar.is-home #nd-lists { visibility: hidden; }
+/* 홈 화면: 가운데에 로고와 무작위 문서, 보관함 단추가 있으므로 상단 막대의 같은 것은 숨긴다(자리는 남겨 다른 단추가 밀리지 않게).
+   검색창(.nd-search.is-hidden)과 같은 모양으로 사라지고 나타난다. 누름 효과(transform)와 겹치지 않게 translate, scale을 따로 쓴다.
+   숨길 때는 다 사라진 뒤에 visibility를 끄고(탭 이동, 클릭 막기), 나타날 때는 바로 켠다 */
+.nd-brand, #nd-random, #nd-lists {
+  transition: background .15s, color .15s, transform .1s,
+    opacity .22s var(--nd-ease), translate .22s var(--nd-ease), scale .22s var(--nd-ease), visibility 0s;
+}
+.nd-topbar.is-home .nd-brand, .nd-topbar.is-home #nd-random, .nd-topbar.is-home #nd-lists {
+  opacity: 0; translate: 0 -4px; scale: .98; visibility: hidden; pointer-events: none;
+  transition-delay: 0s, 0s, 0s, 0s, 0s, 0s, .22s;
+}
+/* 앱을 켜서 처음 그릴 때는 전환 없이 바로 놓는다(app.js) */
+.nd-topbar.no-anim, .nd-topbar.no-anim * { transition: none !important; }
 .nd-brand-t, .nd-brand-doc { transition: opacity var(--nd-t-in) var(--nd-ease), transform var(--nd-t-in) var(--nd-ease); }
 .nd-brand-doc {
   position: absolute; left: 5px; max-width: 240px; top: 50%; transform: translateY(-30%); opacity: 0; pointer-events: none;
