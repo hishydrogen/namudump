@@ -74,8 +74,9 @@
       "icon": "build/icon.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
       "artifactName": "namudump-${version}-win-${arch}-setup.${ext}",
       "shortcutName": "나무덤프",
       "createDesktopShortcut": false,

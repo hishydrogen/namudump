@@ -7,6 +7,20 @@
 
 !define NAMUDUMP_DESKTOP_LINK "$DESKTOP\${SHORTCUT_NAME}.lnk"
 
+; 3.1.x까지는 설치 마법사에서 '모든 사용자'를 고를 수 있었다. 원클릭 설치는 현재 사용자 계정에만 설치하고
+; 그쪽(HKCU)의 이전 버전만 지우므로, 모든 사용자용 이전 설치가 있으면 따로 지우도록 알린다
+!macro customInit
+  ${IfNot} ${Silent}
+    ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ReadRegStr $1 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $0 != ""
+    ${AndIf} $1 == ""
+      MessageBox MB_OKCANCEL|MB_ICONINFORMATION "이 컴퓨터에 '모든 사용자'용으로 설치된 이전 나무덤프가 있습니다.$\r$\n$\r$\n새 버전은 현재 사용자 계정에 설치됩니다. 설치가 끝나면 Windows 설정의 '앱'에서 이전 나무덤프를 제거해 주세요. 설정, 즐겨찾기, 방문 기록은 그대로 남습니다." IDOK +2
+      Quit
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 !macro customInstall
   ; 새로 설치하면 만들고, 업데이트 때는 사용자가 남겨 둔 경우에만 다시 만든다
   ${ifNot} ${isUpdated}

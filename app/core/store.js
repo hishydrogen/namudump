@@ -13,6 +13,8 @@ const DEFAULT_SETTINGS = {
   toc_sidebar: true,
   link_check: true,
   record_history: true,
+  update_check: true,    // 시작할 때와 몇 시간마다 GitHub에서 새 버전을 확인한다
+  update_skip: '',       // '이 버전 건너뛰기'로 넘긴 버전(그보다 새 버전이 나오면 다시 알린다)
   auto_find: true,       // 연결된 덤프가 없을 때 다운로드 폴더의 namu-html.sqlite를 찾아 연다(연결을 해제하면 끈다)
 };
 const HISTORY_KEEP = 500;

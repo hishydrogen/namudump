@@ -96,11 +96,11 @@ a:hover { text-decoration: underline; }
 kbd { font-family: var(--nd-font); }
 
 /* UI 텍스트·링크·아이콘 보호: 본문과 오른쪽 목차를 제외한 앱 UI 요소는 긁히거나 링크 유령으로 끌리지 않게 한다 */
-.nd-topbar, .nd-home, .nd-onb, .nd-drawer, .nd-modal, .nd-find, .nd-menu, .nd-toast, .nd-totop,
+.nd-topbar, .nd-home, .nd-onb, .nd-drawer, .nd-modal, .nd-find, .nd-menu, .nd-toast, .nd-totop, .nd-update,
 .nd-meta, .nd-cats, .nd-docfoot, .nd-side-h, button, kbd {
   -webkit-user-select: none; user-select: none;
 }
-.nd-topbar a, .nd-home a, .nd-drawer a, .nd-modal a, .nd-cats a, .nd-meta a, img {
+.nd-topbar a, .nd-home a, .nd-drawer a, .nd-modal a, .nd-update a, .nd-cats a, .nd-meta a, img {
   -webkit-user-drag: none;
 }
 input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
@@ -137,7 +137,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-native .nd-topbar input { -webkit-user-select: text; user-select: text; }
 .nd-native .nd-topbar button, .nd-native .nd-topbar a, .nd-native .nd-topbar input, .nd-native .nd-search,
 .nd-native .nd-sugg, .nd-native .nd-scrim, .nd-native .nd-drawer, .nd-native .nd-modal, .nd-native .nd-pop,
-.nd-native .nd-find, .nd-native .nd-toast, .nd-native .nd-menu { -webkit-app-region: no-drag; }
+.nd-native .nd-find, .nd-native .nd-toast, .nd-native .nd-menu, .nd-native .nd-update { -webkit-app-region: no-drag; }
 /* 홈/온보딩에서 상단 검색창이 숨겨진 동안에는 그 자리도 잡고 창을 끌 수 있게 한다 */
 .nd-native .nd-search.is-hidden, .nd-native .nd-search.is-hidden input,
 .nd-native .nd-topbar button:disabled { -webkit-app-region: drag; }
@@ -244,7 +244,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-title { font-size: 2.05em; line-height: 1.25; margin: 0 0 10px; font-weight: 800; letter-spacing: -.02em; word-break: keep-all; overflow-wrap: anywhere; }
 .nd-title .ns { color: var(--nd-muted); font-weight: 600; }
 .nd-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; color: var(--nd-muted); padding-bottom: 16px; border-bottom: 1px solid var(--nd-line); margin-bottom: 18px; }
-.nd-meta .grow { flex: 1; }
+.nd-meta .grow, .nd-about-foot .grow, .nd-update-btns .grow { flex: 1; }
 .nd-chipbtn {
   display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: 9px;
   border: 1px solid var(--nd-line); background: transparent; color: var(--nd-muted); cursor: pointer; font-size: 13px; white-space: nowrap;
@@ -417,7 +417,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
   .nd-drawer, .nd-scrim, .nd-drawer.closing, .nd-scrim.closing, .nd-drawer-list.from-right, .nd-drawer-list.from-left,
   .nd-modal, .nd-modal-card, .nd-modal.closing, .nd-modal.closing .nd-modal-card { animation: none; }
   #nd-drawer-tabs::before { transition: none; }
-  .nd-find, .nd-pop, .nd-toast, .nd-sugg { animation: none; }
+  .nd-find, .nd-pop, .nd-toast, .nd-sugg, .nd-update { animation: none; }
 }
 .nd-drawer-h { height: var(--nd-top-h); flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; border-bottom: 1px solid var(--nd-line); }
 .nd-drawer-b { flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 10px; }
@@ -522,7 +522,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-oss-pill small { color: var(--nd-faint); font-size: 10.5px; }
 .nd-about-note { margin: 12px 4px 0; font-size: 12px; color: var(--nd-faint); text-align: center; }
 .nd-about-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; gap: 8px;
   margin-top: 12px; padding: 12px 4px 0; border-top: 1px solid var(--nd-line); font-size: 12.5px; color: var(--nd-faint);
 }
 .nd-badge { display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; background: var(--nd-accent-soft); color: var(--nd-accent-2); }
@@ -577,6 +577,30 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 }
 .nd-totop:hover { color: var(--nd-text); }
 .nd-totop svg { width: 20px; height: 20px; }
+
+/* 새 버전 알림: 오른쪽 아래 카드. 읽던 문서를 가리지 않게 작게, 닫기 전까지 남겨 둔다 */
+.nd-update {
+  position: fixed; right: 22px; bottom: 22px; z-index: 90; width: min(380px, calc(100vw - 32px));
+  padding: 16px 16px 14px; background: var(--nd-card); border: 1px solid var(--nd-line); border-radius: 16px;
+  box-shadow: var(--nd-shadow-lg); font-size: 13.5px; color: var(--nd-text); animation: ndpop var(--nd-t-in) var(--nd-ease);
+}
+.nd-update[hidden] { display: none; }
+.nd-update-h { display: flex; align-items: center; gap: 12px; }
+.nd-update-h img { flex: none; width: 36px; height: 36px; border-radius: 9px; }
+.nd-update-h .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nd-update-h .t b { font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; }
+.nd-update-h .t small { font-size: 12px; color: var(--nd-muted); }
+.nd-update-h .x { flex: none; align-self: flex-start; width: 28px; height: 28px; margin: -4px -4px 0 0; border: 0; border-radius: 8px; background: none; color: var(--nd-faint); cursor: pointer; display: grid; place-items: center; }
+.nd-update-h .x:hover { background: var(--nd-hover); color: var(--nd-text); }
+.nd-update-h .x svg { width: 16px; height: 16px; }
+.nd-update-notes { margin: 12px 0 0; padding: 10px 12px 10px 28px; max-height: 180px; overflow: auto; border-radius: 10px; background: var(--nd-hover); line-height: 1.55; color: var(--nd-muted); }
+.nd-update-notes li + li { margin-top: 3px; }
+.nd-update-notes li.h { list-style: none; margin-left: -16px; font-weight: 700; color: var(--nd-text); }
+.nd-update-notes li.h:not(:first-child) { margin-top: 8px; }
+.nd-update-more { margin-top: 8px; font-size: 12.5px; }
+.nd-update-btns { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
+.nd-update-skip { border: 0; background: none; padding: 4px 2px; font: inherit; font-size: 12.5px; color: var(--nd-faint); cursor: pointer; }
+.nd-update-skip:hover { color: var(--nd-text); text-decoration: underline; }
 
 /* 불러오는 중 */
 .nd-skel { padding: 34px 44px; }

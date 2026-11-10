@@ -97,6 +97,9 @@ class App {
         }
         return ok({ missing: true, title, suggestions: sugg.slice(0, 20) });
       }
+      // 넘겨주기: 진짜 제목으로 보여 주고, 화면이 넘겨준 제목과 같은 문단 앵커를 찾아가게 한다
+      const target = Dump.redirectTarget(doc.html, doc.title);
+      if (target) { doc.redirect_from = doc.title; doc.title = target; }
       doc.bookmarked = store.isBookmarked(doc.title);
       return ok(doc);
     }

@@ -47,7 +47,7 @@
 
   // ── 서버 호출 ───────────────────────────────────────────
   // 창과 운영체제 기능은 Electron(preload.js의 ndNative)에 맡긴다
-  const NATIVE_EPS = new Set(['pick', 'bg', 'open_url', 'window_title', 'quit', 'swipe_lock']);
+  const NATIVE_EPS = new Set(['pick', 'bg', 'open_url', 'window_title', 'quit', 'swipe_lock', 'update_check']);
   async function api(path, body) {
     if (NATIVE_EPS.has(path)) {
       if (!window.ndNative) return { ok: false };
@@ -764,6 +764,7 @@
     else if (cmd === 'search') { const q = $('#nd-bigq') || $('#nd-q'); q.focus(); q.select(); }
     else if (cmd === 'random') randomDoc();
     else if (cmd === 'bookmark') { if (location.pathname.startsWith('/w/')) toggleBookmark(); }
+    else if (cmd === 'update') checkUpdate(true);
   };
   // 오른쪽 클릭 메뉴의 "나무덤프에서 제목 검색"
   window.ND_searchSelection = () => {
@@ -789,7 +790,6 @@
     }
     if (seq !== S.loadSeq) return;
     if (d.missing) { progress(false); renderMissing(d); return; }
-    if (d.title !== title) history.replaceState(history.state, '', docUrl(d.title, hash));
     S.doc = d;
     let res;
     try {
@@ -798,6 +798,14 @@
       console.error(e);
       res = null;
     }
+    // 넘겨주기로 들어오면 넘겨준 제목과 같은 이름의 문단 앵커로 간다(예: 대유쾌 마운틴 → 불쾌한 골짜기의 6. 대유쾌 마운틴).
+    // 그런 앵커가 없으면 원래 나무위키처럼 문서 맨 위에서 시작한다
+    if (d.redirect_from && !hash && !view && res) {
+      let a = null;
+      try { a = res.fragment.querySelector('#' + CSS.escape(d.redirect_from)); } catch (e) { a = null; }
+      if (a) hash = d.redirect_from;
+    }
+    if (d.title !== title) history.replaceState(history.state, '', docUrl(d.title, hash));
     progress(false);
     renderDocPage(d, res, hash, view);
     if (S.settings.record_history !== false) api('history', { title: d.title }).catch(() => {});
@@ -835,6 +843,7 @@
       <article class="nd-card nd-article" id="nd-article">
         <h1 class="nd-title">${esc(title)}</h1>
         <div class="nd-meta">
+          ${d.redirect_from ? `<span class="nd-redirect">‘${esc(d.redirect_from)}’에서 넘어옴</span>` : ''}
           <span>최근 수정 ${esc(d.last_modified || '알 수 없음')}</span>
           <span class="grow"></span>
           <button class="nd-chipbtn${bm ? ' on' : ''}" id="nd-bm-btn">${bm ? I.starOn : I.star}<span>${bm ? '즐겨찾기됨' : '즐겨찾기'}</span></button>
@@ -1623,10 +1632,14 @@
         <p class="nd-about-note">나무위키 운영사와 관련 없는 비공식 오프라인 뷰어입니다.</p>
         <div class="nd-about-foot">
           <span>${esc(copyright)}</span>
+          <span class="grow"></span>
+          ${window.ndNative ? `<button class="nd-btn nd-sm-btn" id="nd-about-upd"><span>업데이트 확인</span></button>` : ''}
           ${st.homepage ? `<a class="nd-btn nd-sm-btn" href="${esc(st.homepage)}" target="_blank" rel="noopener">${I.ext}<span>GitHub</span></a>` : ''}
         </div>
       </div>`;
     showModal();
+    const ub = $('#nd-about-upd');
+    if (ub) ub.onclick = () => checkUpdate(true, ub);
   }
   function openSettings() {
     const s = S.settings, st = S.status || {}, m = st.meta || {};
@@ -1640,6 +1653,7 @@
       <div class="nd-row"><div class="l">오른쪽 목차 표시<small>창이 넓을 때 본문 오른쪽에 목차를 고정해 표시합니다</small></div>${sw('toc_sidebar', s.toc_sidebar !== false)}</div>
       <div class="nd-row"><div class="l">방문 기록 저장<small>열람한 문서를 보관함에 기록합니다. 기존 기록은 보관함에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
       <div class="nd-row"><div class="l">없는 문서 링크 구분<small>덤프에 없는 문서로 연결된 링크를 빨간색으로 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
+      ${window.ndNative ? `<div class="nd-row"><div class="l">새 버전 자동 확인<small>시작할 때와 몇 시간마다 GitHub에서 새 버전이 나왔는지 확인합니다. 앱 버전 외의 정보는 보내지 않습니다</small></div>${sw('update_check', s.update_check !== false)}</div>` : ''}
       <div class="nd-sub-h">덤프 파일</div>
       <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><div class="nd-btns">${st.ready ? '<button class="nd-btn" id="nd-close-db">연결 해제</button>' : ''}<button class="nd-btn" id="nd-change-db">${I.folder}${st.ready ? '파일 변경' : '파일 선택'}</button></div></div>
       <div class="nd-sub-h">초기화</div>
@@ -1658,6 +1672,7 @@
       if (c.dataset.sw === 'toc_sidebar' && S.doc) $('#nd-side').hidden = !c.checked || !$('#nd-side-toc').children.length || !location.pathname.startsWith('/w/');
       if (c.dataset.sw === 'record_history' && location.pathname === '/') refreshHomeLists();
       if (c.dataset.sw === 'link_check') { if (location.pathname.startsWith('/w/')) route(); }
+      if (c.dataset.sw === 'update_check') scheduleUpdates();
     });
     $('#nd-change-db').onclick = pickDump;
     const cdb = $('#nd-close-db');
@@ -2007,6 +2022,64 @@
     $('#nd-find-close').onclick = () => closeFind();
   }
 
+  // ── 새 버전 확인 ───────────────────────────────────────
+  // 확인과 알림만 한다. 내려받기는 기본 웹 브라우저가 하고, 설치는 사용자가 한다(main.js, core/update.js)
+  const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+  let updT = 0, updLater = '';
+  function scheduleUpdates() {
+    clearTimeout(updT); clearInterval(updT); updT = 0;
+    if (!window.ndNative || S.settings.update_check === false) return;
+    // 첫 화면을 다 그린 뒤에 묻는다
+    updT = setTimeout(() => { checkUpdate(false); updT = setInterval(() => checkUpdate(false), UPDATE_EVERY); }, 8000);
+  }
+  // manual: 사용자가 눌렀을 때. 결과를 늘 알리고, 건너뛴 버전도 다시 보여 준다
+  async function checkUpdate(manual, btn) {
+    if (!window.ndNative) return;
+    if (btn) { btn.disabled = true; btn.querySelector('span').textContent = '확인하는 중…'; }
+    let r;
+    try { r = await api('update_check', { force: !!manual }); } catch (e) { r = { ok: false, error: e.message }; }
+    if (btn && btn.isConnected) { btn.disabled = false; btn.querySelector('span').textContent = '업데이트 확인'; }
+    if (!r || !r.ok) { if (manual) toast('새 버전을 확인하지 못했습니다. ' + ((r && r.error) || ''), 4000); return; }
+    if (!r.newer) { if (manual) toast(`최신 버전(${r.current})을 사용하고 있습니다.`); return; }
+    if (!manual && (r.latest === S.settings.update_skip || r.latest === updLater)) return;
+    if (manual) closeModal();
+    showUpdate(r);
+  }
+  function showUpdate(r) {
+    let box = $('#nd-update');
+    if (!box) { box = document.createElement('div'); box.id = 'nd-update'; box.className = 'nd-update'; document.body.appendChild(box); }
+    const notes = (r.notes && r.notes.lines) || [];
+    const link = r.page ? `<a href="${esc(r.page)}" target="_blank" rel="noopener noreferrer">${r.notes && r.notes.more ? '변경 내용 전체 보기' : '릴리스 페이지 보기'}</a>` : '';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', '새 버전 알림');
+    box.innerHTML = `
+      <div class="nd-update-h">
+        <img src="/icon.png" alt="" width="36" height="36">
+        <div class="t"><b>나무덤프 ${esc(r.latest)} 버전이 나왔습니다</b><small>지금 사용 중인 버전은 ${esc(r.current)}입니다</small></div>
+        <button class="x" data-upd="later" title="닫기" aria-label="닫기">${I.close}</button>
+      </div>
+      ${notes.length ? `<ul class="nd-update-notes">${notes.map((l) => `<li${l.head ? ' class="h"' : ''}>${esc(l.text)}</li>`).join('')}</ul>` : ''}
+      ${link ? `<div class="nd-update-more">${link}</div>` : ''}
+      <div class="nd-update-btns">
+        <button class="nd-update-skip" data-upd="skip">이 버전 건너뛰기</button>
+        <span class="grow"></span>
+        <button class="nd-btn nd-sm-btn" data-upd="later">나중에</button>
+        <button class="nd-btn nd-sm-btn pri" data-upd="get">다운로드</button>
+      </div>`;
+    box.hidden = false;
+    box.onclick = (e) => {
+      const b = e.target.closest('[data-upd]');
+      if (!b) return;
+      const act = b.dataset.upd;
+      if (act === 'get') {
+        api('open_url', { url: r.asset ? r.asset.url : r.page });
+        toast(r.asset ? '웹 브라우저에서 설치 파일을 내려받습니다. 받은 파일을 실행해 설치해 주세요.' : '릴리스 페이지에서 운영체제에 맞는 파일을 내려받아 주세요.', 5000);
+      } else if (act === 'skip') saveSettings({ update_skip: r.latest });
+      else updLater = r.latest;      // 이번 실행 동안은 다시 띄우지 않는다
+      box.hidden = true;
+    };
+  }
+
   async function boot() {
     initChrome();
     try {
@@ -2022,6 +2095,7 @@
     history.replaceState(Object.assign({ y: 0, idx: 0, key: newKey() }, history.state || {}), '');
     navKeys[navIdx()] = history.state.key;
     route(false);
+    scheduleUpdates();
   }
   boot();
 })();

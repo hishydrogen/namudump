@@ -1,11 +1,12 @@
 'use strict';
 // 나무덤프 Electron 메인 프로세스: 창, 메뉴, namudump:// 주소, 운영체제 기능.
-const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, net, protocol, session, shell } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { Worker } = require('node:worker_threads');
 const pkg = require('../package.json');
 const { jsonResponse, staticResponse, isAppRoute, isExternalUrl } = require('./core/web');
+const update = require('./core/update');
 
 const APP_NAME = '나무덤프';
 const APP_ID = 'com.hishydrogen.namudump';
@@ -232,6 +233,32 @@ function showContextMenu(win, p) {
   Menu.buildFromTemplate(items).popup({ window: win });
 }
 
+// ── 새 버전 확인 ─────────────────────────────────────────
+// 화면이 시작할 때와 몇 시간마다(설정에서 끌 수 있다), 그리고 사용자가 누를 때 부른다.
+// 창이 여럿이어도 한 번만 묻도록, 진행 중인 요청과 최근 결과를 나눠 쓴다. 보내는 것은 앱 이름과 버전뿐이다.
+const RELEASE_API = update.latestReleaseApi(pkg.homepage);
+const UPDATE_FRESH = 30 * 60 * 1000;
+let updateLast = null, updateLastAt = 0, updateBusy = null;
+function checkUpdate(force) {
+  if (!force && updateLast && updateLast.ok && Date.now() - updateLastAt < UPDATE_FRESH) return Promise.resolve(updateLast);
+  if (updateBusy) return updateBusy;
+  updateBusy = (async () => {
+    if (!RELEASE_API) return { ok: false, error: '저장소 주소가 없습니다.' };
+    try {
+      const r = await net.fetch(RELEASE_API, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'NamuDump/' + pkg.version },
+        signal: AbortSignal.timeout(15000), cache: 'no-store',
+      });
+      if (r.status === 404) return { ok: false, error: '공개된 릴리스가 없습니다.' };
+      if (!r.ok) return { ok: false, error: 'GitHub 응답 오류(' + r.status + ')' };
+      return update.interpret(await r.json(), pkg.version, process.platform, process.arch);
+    } catch (e) {
+      return { ok: false, error: e && e.name === 'TimeoutError' ? '응답 시간이 초과되었습니다.' : '인터넷에 연결되어 있지 않거나 GitHub에 접속하지 못했습니다.' };
+    }
+  })().then((res) => { if (res.ok) { updateLast = res; updateLastAt = Date.now(); } updateBusy = null; return res; });
+  return updateBusy;
+}
+
 // 화면에서 부르는 운영체제 기능
 ipcMain.handle('nd', async (e, ep, body) => {
   const win = BrowserWindow.fromWebContents(e.sender);
@@ -262,6 +289,7 @@ ipcMain.handle('nd', async (e, ep, body) => {
     return { ok: !!macInput };
   }
   if (ep === 'quit') { app.quit(); return { ok: true }; }
+  if (ep === 'update_check') return checkUpdate(!!body.force);
   return { ok: false };
 });
 
@@ -302,6 +330,7 @@ function buildMenu() {
   const tpl = [
     { label: APP_NAME, submenu: [
       { label: `${APP_NAME}에 관하여`, click: () => sendCommand('about') },
+      { label: '업데이트 확인…', click: () => sendCommand('update') },
       { type: 'separator' },
       { label: '설정…', accelerator: 'Cmd+,', click: () => sendCommand('settings') },
       { label: '덤프 파일 열기…', accelerator: 'Cmd+O', click: () => sendCommand('pick') },

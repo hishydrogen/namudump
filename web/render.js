@@ -156,6 +156,12 @@
       if (el.childElementCount === 0 && !hasDV(el) && blankText(el.textContent)) el.remove();
     });
 
+    // 1-2) 넘겨주기 문서의 '…에서 넘어옴' 상자. 앱이 문서 정보 줄에 따로 보여 주고, 링크는 같은 넘겨주기로 되돌아올 뿐이다
+    doc.querySelectorAll('a[href*="noredirect=1"]').forEach((a) => {
+      const box = a.parentElement;
+      if (box && box.textContent.replace(/\s+/g, ' ').trim() === (a.textContent.trim() + '에서 넘어옴')) box.remove();
+    });
+
     // 2) 본문 블록
     const B = findBody(doc);
     out.hadBody = B !== doc.body;

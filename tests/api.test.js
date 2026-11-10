@@ -19,6 +19,10 @@ const DOCS = {
   나무: '<div><p>나무 문서</p></div>',
   사과나무: '<div><p>사과나무 문서</p></div>',
   Python: '<div><p>파이썬</p></div>',
+  // 넘겨주기 문서: 넘겨받는 문서의 화면이 그대로 들어 있다
+  '대유쾌 마운틴': '<h1 class="x"><a href="/w/a"><span>불쾌한 골짜기</span></a></h1><div><a href="/w/%EB%8C%80?noredirect=1" rel="nofollow" title="대유쾌 마운틴">대유쾌 마운틴</a>에서 넘어옴 </div>' +
+    '<div><h2><a id="s-6" href="#toc">6.</a> <span id="대유쾌 마운틴"><a id="대유쾌 마운틴"></a>대유쾌 마운틴</span></h2></div>',
+  'AT&amp;T 별명': '<h1><span>AT&amp;T</span></h1><div><a href="/w/x?noredirect=1">AT&amp;T 별명</a>에서 넘어옴</div>',
 };
 
 function makeDump(file) {
@@ -52,6 +56,14 @@ test('상태', () => {
 test('문서 읽기(압축 풀기)', () => {
   assert.match(get('doc', { title: '나무위키' }).html, /나무위키 문서/);
   assert.equal(get('doc', { title: 'python' }).title, 'Python');      // 대소문자를 맞춰 찾는다
+});
+
+test('넘겨주기 문서는 진짜 제목과 넘겨준 제목을 알려 준다', () => {
+  const d = get('doc', { title: '대유쾌 마운틴' });
+  assert.equal(d.title, '불쾌한 골짜기');
+  assert.equal(d.redirect_from, '대유쾌 마운틴');
+  assert.equal(get('doc', { title: 'AT&amp;T 별명' }).title, 'AT&T');
+  assert.equal(get('doc', { title: '나무위키' }).redirect_from, undefined);
 });
 
 test('없는 문서는 비슷한 제목을 알려 준다', () => {

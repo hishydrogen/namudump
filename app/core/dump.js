@@ -102,6 +102,20 @@ class Dump {
     return { id: Number(row.id), title, html: Dump.inflate(row.html), last_modified: row.last_modified };
   }
 
+  // 넘겨주기 문서는 넘겨받는 문서의 화면이 그대로 저장되어 있다(덤프 생성기가 넘겨진 뒤의 쪽을 받아 왔다).
+  // '…에서 넘어옴' 표시가 있으면 <h1>에 적힌 진짜 문서 제목을 돌려준다. 문단 주소(#…)는 저장되지 않았다.
+  static redirectTarget(html, title) {
+    if (!html || !/noredirect=1"[^>]*>[^<]*<\/a>\s*에서 넘어옴/.test(html)) return null;
+    const m = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/);
+    if (!m) return null;
+    const t = m[1].replace(/<[^>]*>/g, '')
+      .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
+      .replace(/&#x([\da-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ').trim();
+    return t && t !== title ? t : null;
+  }
+
   has(title) { return !!this.q.has.get(title); }
 
   prefix(q, limit = 20, offset = 0) {
