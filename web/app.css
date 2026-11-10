@@ -38,6 +38,9 @@
   --nd-line: #e3e7ea;
   --nd-line-2: #d3d9dd;
   --nd-hover: rgba(0, 0, 0, .05);
+  /* 단추 묶음(.nd-seg)에서 고른 칸의 바탕과 그림자 */
+  --nd-seg-on: var(--nd-card);
+  --nd-seg-on-shadow: 0 1px 3px rgba(0, 0, 0, .12);
   --nd-accent: #00a495;
   --nd-accent-2: #00887c;
   --nd-accent-soft: rgba(0, 164, 149, .12);
@@ -64,6 +67,9 @@
   --nd-line: #2a2f34;
   --nd-line-2: #394046;
   --nd-hover: rgba(255, 255, 255, .06);
+  /* 어두운 화면에서는 카드색이 묶음 바탕과 거의 같아 고른 칸이 보이지 않는다. 한 단계 밝히고 얇은 윤곽을 둔다 */
+  --nd-seg-on: #2b3136;
+  --nd-seg-on-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07), 0 1px 3px rgba(0, 0, 0, .45);
   --nd-accent: #1fc2b1;
   --nd-accent-2: #3fd6c6;
   --nd-accent-soft: rgba(31, 194, 177, .15);
@@ -423,7 +429,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 #nd-drawer-tabs, .nd-seg.pill { position: relative; }
 #nd-drawer-tabs::before, .nd-seg.pill::before {
   content: ""; position: absolute; top: 3px; bottom: 3px; left: 0; width: var(--pill-w, 0); transform: translateX(var(--pill-x, 0));
-  background: var(--nd-card); border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+  background: var(--nd-seg-on); border-radius: 8px; box-shadow: var(--nd-seg-on-shadow);
   transition: transform .22s var(--nd-ease), width .22s var(--nd-ease);
 }
 #nd-drawer-tabs.no-anim::before, .nd-seg.pill.no-anim::before { transition: none; }
@@ -476,7 +482,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 
 .nd-seg { display: inline-flex; background: var(--nd-bg); border-radius: 10px; padding: 3px; gap: 2px; }
 .nd-seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px; color: var(--nd-muted); }
-.nd-seg button.on { background: var(--nd-card); color: var(--nd-text); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); font-weight: 600; }
+.nd-seg button.on { background: var(--nd-seg-on); color: var(--nd-text); box-shadow: var(--nd-seg-on-shadow); font-weight: 600; }
 
 /* ── 설정 창 ───────────────────────────────────────────── */
 .nd-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(0, 0, 0, .3); padding: 20px; animation: ndfade var(--nd-t-in) var(--nd-ease); }
