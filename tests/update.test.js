@@ -36,8 +36,8 @@ test('운영체제와 CPU에 맞는 설치 파일', () => {
 
 test('변경 내용 요약', () => {
   const n = U.summarizeNotes('## 새 기능\n- **업데이트 확인** 추가\n- [넘겨주기](https://x) 문단 찾기\n\n---\n## 고친 점\n');
-  assert.deepEqual(n.lines, [{ head: true, text: '새 기능' }, { head: false, text: '업데이트 확인 추가' }, { head: false, text: '넘겨주기 문단 찾기' }]);
-  assert.equal(U.summarizeNotes(Array.from({ length: 20 }, (_, i) => '- ' + i).join('\n')).more, true);
+  assert.deepEqual(n, [{ head: true, text: '새 기능' }, { head: false, text: '업데이트 확인 추가' }, { head: false, text: '넘겨주기 문단 찾기' }]);
+  assert.equal(U.summarizeNotes(Array.from({ length: 40 }, (_, i) => '- ' + i).join('\n')).length, 40);   // 자르지 않는다
 });
 
 test('릴리스 응답 해석', () => {

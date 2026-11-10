@@ -33,8 +33,9 @@ function pickAsset(assets, platform, arch) {
   return url.startsWith('https://github.com/') ? { name: a.name, url, size: Number(a.size) || 0 } : null;
 }
 
-// 릴리스 설명(마크다운)을 몇 줄짜리 글로 줄인다. 화면은 글자로만 넣는다(HTML로 해석하지 않는다)
-function summarizeNotes(body, maxLines = 8) {
+// 릴리스 설명(마크다운)을 줄 단위 글로 바꾼다. 전부 넘기고, 화면의 알림 카드 안에서 스크롤한다.
+// 화면은 글자로만 넣는다(HTML로 해석하지 않는다)
+function summarizeNotes(body) {
   const lines = [];
   for (let l of String(body || '').replace(/\r/g, '').split('\n')) {
     l = l.replace(/<!--[\s\S]*?-->/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '')
@@ -44,10 +45,9 @@ function summarizeNotes(body, maxLines = 8) {
     if (head) { lines.push({ head: true, text: head[1] }); continue; }
     lines.push({ head: false, text: l.replace(/^([-*+]|\d+\.)\s+/, '') });
   }
-  // 제목만 덩그러니 남지 않게, 끝에 걸린 제목은 뺀다
-  const out = lines.slice(0, maxLines);
-  while (out.length && out[out.length - 1].head) out.pop();
-  return { lines: out, more: lines.length > out.length };
+  // 내용 없이 끝에 걸린 제목은 뺀다
+  while (lines.length && lines[lines.length - 1].head) lines.pop();
+  return lines;
 }
 
 // API 응답 → 화면에 넘길 결과

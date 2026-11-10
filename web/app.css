@@ -593,7 +593,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-update-h .x { flex: none; align-self: flex-start; width: 28px; height: 28px; margin: -4px -4px 0 0; border: 0; border-radius: 8px; background: none; color: var(--nd-faint); cursor: pointer; display: grid; place-items: center; }
 .nd-update-h .x:hover { background: var(--nd-hover); color: var(--nd-text); }
 .nd-update-h .x svg { width: 16px; height: 16px; }
-.nd-update-notes { margin: 12px 0 0; padding: 10px 12px 10px 28px; max-height: 180px; overflow: auto; border-radius: 10px; background: var(--nd-hover); line-height: 1.55; color: var(--nd-muted); }
+.nd-update-notes { margin: 12px 0 0; padding: 10px 12px 10px 28px; max-height: min(260px, 40vh); overflow: auto; overscroll-behavior: contain; border-radius: 10px; background: var(--nd-hover); line-height: 1.55; color: var(--nd-muted); }
 .nd-update-notes li + li { margin-top: 3px; }
 .nd-update-notes li.h { list-style: none; margin-left: -16px; font-weight: 700; color: var(--nd-text); }
 .nd-update-notes li.h:not(:first-child) { margin-top: 8px; }

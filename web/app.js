@@ -2048,8 +2048,8 @@
   function showUpdate(r) {
     let box = $('#nd-update');
     if (!box) { box = document.createElement('div'); box.id = 'nd-update'; box.className = 'nd-update'; document.body.appendChild(box); }
-    const notes = (r.notes && r.notes.lines) || [];
-    const link = r.page ? `<a href="${esc(r.page)}" target="_blank" rel="noopener noreferrer">${r.notes && r.notes.more ? '변경 내용 전체 보기' : '릴리스 페이지 보기'}</a>` : '';
+    const notes = Array.isArray(r.notes) ? r.notes : [];
+    const link = r.page ? `<a href="${esc(r.page)}" target="_blank" rel="noopener noreferrer">릴리스 페이지 보기</a>` : '';
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', '새 버전 알림');
     box.innerHTML = `

@@ -74,7 +74,7 @@ npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm
   - **Windows, Linux, 웹 화면, README**: 동일한 형태를 단색 플랫 스타일로 그린 `build/icon-flat.svg` 기반의 `build/icon.png`(1024px), `docs/icon.png`(512px), `web/icon.png`(256px)를 사용합니다.
 - **코드 서명**: macOS 빌드는 임시(ad-hoc) 서명만 수행하며 Apple 공증(Notarization)은 거치지 않습니다. Windows 설치 파일 역시 별도 인증서 서명을 하지 않으므로 최초 실행 시 안내를 README에 수록했습니다.
 - **Windows 설치 프로그램**: NSIS 원클릭 방식(`oneClick: true`, `perMachine: false`)으로, 마법사 없이 `%LOCALAPPDATA%\Programs`에 설치하고 바로 실행합니다. 3.1.x까지의 마법사에서 '모든 사용자'로 설치한 기록(HKLM)이 있으면 `build/installer.nsh`의 `customInit`이 이전 버전을 따로 제거하도록 안내합니다.
-- **새 버전 확인**: 메인 프로세스가 GitHub API의 `releases/latest`(초안과 사전 릴리스 제외)를 조회하고, 화면이 시작 8초 뒤와 6시간마다 묻습니다(설정 `update_check`). 확인과 알림만 하며, 설치 파일 링크는 기본 웹 브라우저로 엽니다. macOS가 임시 서명뿐이라 자동 설치(electron-updater)는 쓰지 않습니다. 설치 파일 이름이 `artifactName` 규칙(`namudump-<버전>-<os>-<arch>…`)을 벗어나면 릴리스 페이지로 안내하므로, 이름 규칙을 바꿀 때는 `app/core/update.js`의 `pickAsset`도 함께 고칩니다. 릴리스 설명의 앞부분이 알림 창에 표시됩니다.
+- **새 버전 확인**: 메인 프로세스가 GitHub API의 `releases/latest`(초안과 사전 릴리스 제외)를 조회하고, 화면이 시작 8초 뒤와 6시간마다 묻습니다(설정 `update_check`). 확인과 알림만 하며, 설치 파일 링크는 기본 웹 브라우저로 엽니다. macOS가 임시 서명뿐이라 자동 설치(electron-updater)는 쓰지 않습니다. 설치 파일 이름이 `artifactName` 규칙(`namudump-<버전>-<os>-<arch>…`)을 벗어나면 릴리스 페이지로 안내하므로, 이름 규칙을 바꿀 때는 `app/core/update.js`의 `pickAsset`도 함께 고칩니다. 릴리스 설명 전체가 알림 창의 스크롤 상자에 표시됩니다.
 - **릴리스 절차**
   1. `package.json`의 `version`을 업데이트하고 `CHANGELOG.md`에 변경 사항을 기록합니다.
   2. 변경 사항을 커밋하고 푸시합니다.
