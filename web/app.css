@@ -434,6 +434,9 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 #nd-drawer-tabs button.on { background: transparent; box-shadow: none; }
 #nd-drawer-tabs button.on svg { opacity: 1; color: var(--nd-accent); }
 .nd-drawer-list { min-height: 100%; display: flex; flex-direction: column; }
+/* 맥: 목록이 짧아 굴릴 것이 없으면 위아래 튕기기도 일어나지 않는다. 늘 1px 넘치게 해서 설정 패널처럼 튕기게 한다
+   (윈도우, 리눅스는 스크롤 막대가 늘 보이게 되므로 하지 않는다) */
+.nd-mac .nd-drawer-list { min-height: calc(100% + 1px); }
 .nd-drawer-list.from-right { animation: ndlistr .22s var(--nd-ease); }
 .nd-drawer-list.from-left { animation: ndlistl .22s var(--nd-ease); }
 @keyframes ndlistr { from { transform: translateX(16px); opacity: 0; } }
