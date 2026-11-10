@@ -568,6 +568,9 @@
     star.style.visibility = opts.star ? 'visible' : 'hidden';
     star.disabled = !opts.star;
     star.tabIndex = opts.star ? 0 : -1;
+    // 홈과 시작 안내 화면에서는 상단 막대의 검색창을 숨겨 본문과 겹치지 않게 한다
+    const topSearch = $('#nd-search');
+    if (topSearch) topSearch.classList.toggle('is-hidden', !!opts.hideTopSearch);
     // 문서 CSS는 지금 문서(#nd-main 안)에만 듣게 한다. 미리 보기 쪽은 따로 범위를 바꿔 넣는다
     // :where()는 우선순위를 올리지 않아 원래 CSS와 같은 세기로 듣는다
     $('#nd-wiki-css').textContent = (opts.css || '').replace(/\.nd-content(?![\w-])/g, ':where(#nd-main) .nd-content');
@@ -589,78 +592,74 @@
   async function renderHome() {
     setTitle('나무덤프', '');
     const st = S.status;
+    const kbd = IS_MAC ? '⌘K' : 'Ctrl K';
     setPage(`
       <div class="nd-home">
+        <div class="nd-hero">
+          <div class="nd-hero-logo"></div>
+          <h1 class="nd-hero-title">나무덤프</h1>
+          <div class="nd-hero-sub">${dumpDate() ? `<span>${dumpDate()} 기준 덤프</span><span class="dot">·</span>` : ''}<span>문서 ${fmtNum(st.doc_count)}개</span></div>
+        </div>
         <div class="nd-bigsearch" id="nd-bigsearch">
           <span class="ic">${I.search}</span>
-          <input id="nd-bigq" type="search" placeholder="문서 제목 검색" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
+          <input id="nd-bigq" type="search" placeholder="문서 제목 검색…" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
+          <kbd class="nd-kbd">${kbd}</kbd>
           <div class="nd-sugg" id="nd-bigsugg" hidden></div>
         </div>
-        <div class="nd-home-meta">
-          <span>${dumpDate() ? dumpDate() + ' 기준 덤프, ' : ''}문서 ${fmtNum(st.doc_count)}개</span>
-          <a id="nd-home-dump" title="다른 덤프 파일 열기">덤프 파일 변경</a>
+        <div class="nd-home-acts">
+          <button type="button" class="nd-pill-act" id="nd-home-random">${I.shuffle}<span>무작위 문서</span></button>
+          <button type="button" class="nd-pill-act" id="nd-home-lists-btn">${I.list}<span>보관함</span></button>
+          <button type="button" class="nd-pill-act" id="nd-home-dump" title="다른 덤프 파일 열기">${I.folder}<span>덤프 변경</span></button>
         </div>
-        <section class="nd-sect" id="nd-home-recent"></section>
-        <section class="nd-sect" id="nd-home-bm"></section>
-        <section class="nd-sect" id="nd-home-discover"></section>
-        <div class="nd-about">
-          문서 내용의 저작권은 나무위키 기여자에게 있으며, <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">CC BY-NC-SA 2.0 KR</a> 라이선스에 따라 비영리 목적으로 이용할 수 있습니다.
-          오프라인 덤프에는 이미지 파일이 포함되어 있지 않아 이미지 영역에는 설명만 표시됩니다.
-        </div>
-      </div>`, { side: false });
+        <div class="nd-home-lists" id="nd-home-lists"></div>
+      </div>`, { side: false, hideTopSearch: true });
     const bq = $('#nd-bigq');
     attachSuggest(bq, $('#nd-bigsugg'));
     setTimeout(() => bq.focus(), 30);
+    $('#nd-home-random').onclick = randomDoc;
+    $('#nd-home-lists-btn').onclick = () => openDrawer();
     $('#nd-home-dump').onclick = pickDump;
     refreshHomeLists();
-    refreshDiscover();
   }
-  // 카드 하나: 제목(두 줄까지), 아래에 이름공간(분류, 틀 등)과 덧붙일 글
-  function tileHtml(title, meta) {
+  function homeRowHtml(title, meta) {
     const ns = nsOf(title);
     const name = ns ? title.slice(ns.length + 1) : title;
-    const sub = (ns ? `<span class="ns">${esc(ns)}</span>` : '') + (meta ? esc(meta) : '');
-    return `<a class="nd-tile" href="${docUrl(title)}" data-title="${esc(title)}" title="${esc(title)}"><b>${esc(name)}</b>` +
-      (sub ? `<small>${sub}</small>` : '') + '</a>';
+    return `<a class="nd-hitem" href="${docUrl(title)}" data-title="${esc(title)}" title="${esc(title)}">` +
+      (ns ? `<span class="ns">${esc(ns)}</span>` : '') +
+      `<span class="t">${esc(name)}</span>` +
+      (meta ? `<small>${esc(meta)}</small>` : '') + '</a>';
   }
   async function refreshHomeLists() {
-    if (!$('#nd-home-recent')) return;
+    const box = $('#nd-home-lists');
+    if (!box) return;
     try {
       const recOn = S.settings.record_history !== false;
       const [hist, bms] = await Promise.all([recOn ? api('history') : Promise.resolve([]), api('bookmarks')]);
-      if (!$('#nd-home-recent')) return;
+      if (!$('#nd-home-lists')) return;
       S.bookmarks = new Set(bms.map((b) => b.title));
-      const more = (id) => `<button type="button" id="${id}">전체 보기${I.fwd}</button>`;
-      const last = hist[0];
-      $('#nd-home-recent').innerHTML = last ? `
-        <div class="nd-sect-h"><h2>이어서 읽기</h2>${hist.length > 1 ? more('nd-home-more-h') : ''}</div>
-        <a class="nd-resume" href="${docUrl(last.title)}" data-title="${esc(last.title)}">
-          <div class="nd-resume-in"><div class="nd-resume-k">마지막으로 읽은 문서</div>
-            <div class="nd-resume-t">${esc(last.title)}</div><div class="nd-resume-m">${esc(ago(last.visited_at))}</div></div>${I.fwd}</a>
-        ${hist.length > 1 ? `<div class="nd-tiles">${hist.slice(1, 9).map((x) => tileHtml(x.title, ago(x.visited_at))).join('')}</div>` : ''}` : '';
-      $('#nd-home-bm').innerHTML = bms.length ? `
-        <div class="nd-sect-h"><h2>즐겨찾기</h2>${bms.length > 8 ? more('nd-home-more-b') : ''}</div>
-        <div class="nd-tiles">${bms.slice(0, 8).map((x) => tileHtml(x.title, '')).join('')}</div>` : '';
+      const cols = [];
+      if (hist.length) {
+        cols.push(`<section class="nd-hcard">
+          <header class="nd-hcard-h">
+            <span class="lbl">${I.clock}<span>최근 본 문서</span></span>
+            <button type="button" id="nd-home-more-h">전체 보기${I.fwd}</button>
+          </header>
+          <div class="nd-hcard-b">${hist.slice(0, 5).map((x) => homeRowHtml(x.title, ago(x.visited_at))).join('')}</div>
+        </section>`);
+      }
+      if (bms.length) {
+        cols.push(`<section class="nd-hcard">
+          <header class="nd-hcard-h">
+            <span class="lbl">${I.star}<span>즐겨찾기</span></span>
+            <button type="button" id="nd-home-more-b">전체 보기${I.fwd}</button>
+          </header>
+          <div class="nd-hcard-b">${bms.slice(0, 5).map((x) => homeRowHtml(x.title, '')).join('')}</div>
+        </section>`);
+      }
+      box.classList.toggle('single', cols.length === 1);
+      box.innerHTML = cols.join('');
       const mh = $('#nd-home-more-h'); if (mh) mh.onclick = () => openDrawer('history');
       const mb = $('#nd-home-more-b'); if (mb) mb.onclick = () => openDrawer('bookmarks');
-    } catch (e) { /* 무시 */ }
-  }
-  // 둘러볼 만한 문서: 일반 문서 가운데 무작위로 몇 개
-  const DISCOVER_N = 8;
-  async function refreshDiscover() {
-    const box = $('#nd-home-discover');
-    if (!box) return;
-    if (!box.firstChild) {
-      box.innerHTML = `<div class="nd-sect-h"><h2>둘러볼 만한 문서</h2><button type="button" id="nd-home-shuffle">${I.shuffle}다른 문서 보기</button></div><div class="nd-tiles loading" id="nd-home-dtiles">${'<span class="nd-tile"><b>…</b></span>'.repeat(DISCOVER_N)}</div>`;
-      $('#nd-home-shuffle').onclick = refreshDiscover;
-    }
-    try {
-      const rs = await Promise.all(Array.from({ length: DISCOVER_N }, () => api('random')));
-      const tiles = $('#nd-home-dtiles');
-      if (!tiles) return;
-      const titles = [...new Set(rs.map((r) => r.title).filter(Boolean))];
-      tiles.innerHTML = titles.map((t) => tileHtml(t, '')).join('');
-      tiles.classList.remove('loading');
     } catch (e) { /* 무시 */ }
   }
   function ago(ts) {
@@ -686,7 +685,7 @@
         <div style="margin-top:20px"><button class="nd-btn pri" id="nd-pick">${I.folder}덤프 파일 선택…</button></div>
         <div class="nd-pathrow"><input id="nd-path" placeholder="또는 파일 경로를 직접 입력해 주세요" value="${esc(st.db_path || '')}"><button class="nd-btn" id="nd-open">열기</button></div>
         <p style="margin-top:14px;font-size:13px">외장 드라이브에 보관된 파일도 열 수 있으며, 원본 파일은 읽기 전용으로만 접근해 수정하지 않습니다.</p>
-      </div>`, {});
+      </div>`, { hideTopSearch: true });
     $('#nd-pick').onclick = pickDump;
     $('#nd-open').onclick = () => openDumpPath($('#nd-path').value.trim());
     $('#nd-path').onkeydown = (e) => { if (e.key === 'Enter') openDumpPath(e.target.value.trim()); };
@@ -751,7 +750,8 @@
   }
   // 메뉴(맥)에서 부르는 명령
   window.ND_command = (cmd) => {
-    if (cmd === 'settings') openSettings();
+    if (cmd === 'about') openAbout();
+    else if (cmd === 'settings') openSettings();
     else if (cmd === 'pick') pickDump();
     else if (cmd === 'find') openFind();
     else if (cmd === 'drawer') openDrawer('history');
@@ -1580,16 +1580,58 @@
     }, reduce ? 0 : ANIM_OUT);
   }
 
-  // ── 설정 ────────────────────────────────────────────────
+  // ── 설정 및 정보 창 ─────────────────────────────────────
   function seg(name, opts, cur) {
     return `<div class="nd-seg" data-set="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   }
   function sw(name, on) { return `<label class="nd-switch"><input type="checkbox" data-sw="${name}" ${on ? 'checked' : ''}><span></span></label>`; }
-  function openSettings() {
-    const s = S.settings, st = S.status || {}, m = st.meta || {};
+  function openAbout() {
+    const st = S.status || {}, m = st.meta || {};
     const platName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[st.platform] || '';
     const platBadge = platName ? `<span class="nd-badge muted">${platName}${st.arch ? ' ' + esc(st.arch) : ''}</span>` : '';
     const copyright = st.copyright || ('© 2026 ' + (st.author || 'Hishydrogen'));
+    const license = m.license || 'CC BY-NC-SA 2.0 KR';
+    const attr = m.attribution || '나무위키 기여자';
+    $('#nd-modal-t').textContent = '나무덤프에 관하여';
+    $('.nd-modal-card').classList.add('is-about');
+    $('#nd-modal-b').innerHTML = `
+      <div class="nd-about-sheet">
+        <div class="nd-about-hero">
+          <img class="nd-about-hero-logo" src="/icon.png" alt="나무덤프" width="72" height="72">
+          <h3 class="nd-about-hero-name">나무덤프</h3>
+          <p class="nd-about-hero-tag">인터넷 연결 없이 읽는 나무위키 오프라인 덤프 뷰어</p>
+          <div class="nd-about-badges">
+            ${st.version ? `<span class="nd-badge">버전 ${esc(st.version)}</span>` : ''}
+            ${platBadge}
+            <span class="nd-badge muted">MIT License</span>
+          </div>
+        </div>
+        <div class="nd-about-specs">
+          <div class="nd-about-spec">
+            <span class="k">문서 라이선스</span>
+            <span class="v">${esc(attr)} · <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">${esc(license)}</a> <small>(비영리 이용)</small></span>
+          </div>
+          <div class="nd-about-spec">
+            <span class="k">오픈소스 구성</span>
+            <span class="v nd-about-oss">
+              <span class="nd-oss-pill"><b>Electron</b><small>MIT</small></span>
+              <span class="nd-oss-pill"><b>KaTeX</b><small>MIT</small></span>
+              <span class="nd-oss-pill"><b>Pretendard</b><small>SIL OFL 1.1</small></span>
+            </span>
+          </div>
+        </div>
+        <p class="nd-about-note">나무위키 운영사와 관련 없는 비공식 오프라인 뷰어입니다.</p>
+        <div class="nd-about-foot">
+          <span>${esc(copyright)}</span>
+          ${st.homepage ? `<a class="nd-btn nd-sm-btn" href="${esc(st.homepage)}" target="_blank" rel="noopener">${I.ext}<span>GitHub</span></a>` : ''}
+        </div>
+      </div>`;
+    showModal();
+  }
+  function openSettings() {
+    const s = S.settings, st = S.status || {}, m = st.meta || {};
+    $('#nd-modal-t').textContent = '설정';
+    $('.nd-modal-card').classList.remove('is-about');
     $('#nd-modal-b').innerHTML = `
       <div class="nd-row"><div class="l">화면 모드<small>시스템 설정에 맞춰 라이트 모드와 다크 모드를 자동으로 전환합니다</small></div>${seg('theme', [['system', '시스템'], ['light', '라이트'], ['dark', '다크']], s.theme || 'system')}</div>
       <div class="nd-row"><div class="l">글꼴<small>기본 글꼴은 앱에 내장된 Pretendard입니다</small></div><select class="nd-select" id="nd-font">${fontOptions(s.font || 'pretendard', [])}</select></div>
@@ -1602,22 +1644,6 @@
       <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><div class="nd-btns">${st.ready ? '<button class="nd-btn" id="nd-close-db">연결 해제</button>' : ''}<button class="nd-btn" id="nd-change-db">${I.folder}${st.ready ? '파일 변경' : '파일 선택'}</button></div></div>
       <div class="nd-sub-h">초기화</div>
       <div class="nd-row"><div class="l">설정 및 기록 초기화<small>설정과 방문 기록, 즐겨찾기를 모두 초기화하고 덤프 파일 연결을 해제합니다. 원본 덤프 파일은 삭제되지 않습니다</small></div><button class="nd-btn nd-danger" id="nd-reset">초기화</button></div>
-      <div class="nd-sub-h">정보</div>
-      <div class="nd-about-card">
-        <div class="nd-about-head">
-          <img class="nd-about-logo" src="/icon.png" alt="나무덤프" width="42" height="42">
-          <div class="nd-about-main">
-            <div class="nd-about-title"><b>나무덤프</b>${st.version ? `<span class="nd-badge">v${esc(st.version)}</span>` : ''}${platBadge}</div>
-            <div class="nd-about-copy">${esc(copyright)} (MIT License)</div>
-          </div>
-          ${st.homepage ? `<a class="nd-btn nd-sm-btn" href="${esc(st.homepage)}" target="_blank" rel="noopener">GitHub</a>` : ''}
-        </div>
-        <div class="nd-kv nd-about-kv">
-          인터넷 연결 없이 나무위키 덤프 파일을 열람하는 오프라인 뷰어입니다.<br>
-          문서 내용의 저작권은 ${esc(m.attribution || '나무위키 기여자')}에게 있으며, <a class="nd-ext-plain" href="https://creativecommons.org/licenses/by-nc-sa/2.0/kr/" target="_blank" rel="noopener">${esc(m.license || 'CC BY-NC-SA 2.0 KR')}</a> 라이선스에 따라 비영리 목적으로만 이용할 수 있습니다.<br>
-          오픈소스 소프트웨어로 Electron(MIT), 수식 렌더링용 KaTeX(MIT), 글꼴 Pretendard(SIL OFL 1.1)를 사용합니다. 나무위키 운영사와 관련 없는 비공식 프로그램입니다.
-        </div>
-      </div>
       ${S.native ? '' : `<div style="margin-top:18px;text-align:right"><button class="nd-btn" id="nd-quit">나무덤프 종료</button></div>`}`;
     showModal();
     $$('#nd-modal-b .nd-seg').forEach((g) => g.addEventListener('click', (e) => {
@@ -1962,6 +1988,10 @@
       if (S.doc && S.doc.title === b.dataset.unbm) updateStar(false);
       openDrawer('bookmarks');
       if (location.pathname === '/') refreshHomeLists();
+    });
+    // 전역 고스트 드래그 방지: 링크나 이미지를 마우스로 끌 때 주소표나 반투명 유령이 따라다니지 않게 막는다
+    document.addEventListener('dragstart', (e) => {
+      if (e.target.closest && e.target.closest('a, img, .nd-topbar, .nd-home, .nd-drawer, .nd-modal')) e.preventDefault();
     });
     $('#nd-modal-close').onclick = closeModal;
     $('#nd-modal').addEventListener('mousedown', (e) => { if (e.target.id === 'nd-modal') closeModal(); });

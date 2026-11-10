@@ -301,7 +301,7 @@ function buildMenu() {
   if (!IS_MAC) { Menu.setApplicationMenu(null); return; }
   const tpl = [
     { label: APP_NAME, submenu: [
-      { label: `${APP_NAME}에 관하여`, role: 'about' },
+      { label: `${APP_NAME}에 관하여`, click: () => sendCommand('about') },
       { type: 'separator' },
       { label: '설정…', accelerator: 'Cmd+,', click: () => sendCommand('settings') },
       { label: '덤프 파일 열기…', accelerator: 'Cmd+O', click: () => sendCommand('pick') },
