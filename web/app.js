@@ -80,7 +80,7 @@
   function dumpOpenFailed(r) {
     if (S.status && S.status.ready) {
       toast((r.error || '덤프 파일을 열지 못했습니다.') + ' 기존 덤프 파일을 계속 사용합니다.', 6000);
-    } else { closeModal(); route(); }
+    } else { closeModal(); closeSettings(); route(); }
   }
 
   // ── 테마, 글자 크기 ─────────────────────────────────────
@@ -152,7 +152,7 @@
     }
     const menu = document.getElementById('nd-theme-menu');
     if (menu && !menu.hidden) renderThemeMenu(menu);
-    const segEl = document.querySelector('#nd-modal-b [data-set="theme"]');
+    const segEl = document.querySelector('#nd-set-b [data-set="theme"]');
     if (segEl) segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === mode));
     applyDarkStyles(document.querySelector('.nd-content'));
     syncWindowBg();
@@ -573,6 +573,8 @@
     if (topSearch) topSearch.classList.toggle('is-hidden', !!opts.hideTopSearch);
     const bar = $('#nd-topbar');
     bar.classList.toggle('is-home', !!opts.home);
+    // 홈에서는 홈 단추도 뒤로, 앞으로처럼 갈 곳이 없으니 흐리게 하고 누를 수 없게 한다
+    $('#nd-home').disabled = !!opts.home;
     // 첫 화면은 전환 없이 그린다(켜자마자 상단 막대의 단추가 사라지는 모습이 보이지 않게)
     if (!setPage.drawn) { setPage.drawn = true; bar.classList.add('no-anim'); requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.remove('no-anim'))); }
     // 문서 CSS는 지금 문서(#nd-main 안)에만 듣게 한다. 미리 보기 쪽은 따로 범위를 바꿔 넣는다
@@ -698,7 +700,7 @@
     progress(true);
     try {
       const r = await api('pick');
-      if (r.ok) { await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
+      if (r.ok) { await refreshStatus(); closeModal(); closeSettings(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
       else if (!r.cancelled) { await refreshStatus(); dumpOpenFailed(r); }
     } finally { progress(false); }
   }
@@ -708,7 +710,7 @@
     try {
       const r = await api('open', { path: p });
       await refreshStatus();
-      if (r.ok) { closeModal(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
+      if (r.ok) { closeModal(); closeSettings(); go('/', { replace: true }); toast('덤프 파일을 불러왔습니다.'); }
       else dumpOpenFailed(r);
     } finally { progress(false); }
   }
@@ -1490,6 +1492,7 @@
     return `<div class="nd-drawer-empty"><div class="nd-empty-ic">${icon}</div><div class="nd-empty-t">${title}</div><p class="nd-empty-d">${desc}</p>${actionHtml || ''}</div>`;
   }
   async function openDrawer(tab) {
+    closeSettings();
     const drawer = $('#nd-drawer'), scrim = $('#nd-scrim');
     const wasOpen = !drawer.hidden && !drawer.classList.contains('closing');
     const prevTab = drawerTab;
@@ -1645,33 +1648,52 @@
     const ub = $('#nd-about-upd');
     if (ub) ub.onclick = () => checkUpdate(true, ub);
   }
+  // 설정: 보관함과 같은 오른쪽 패널. 대부분 읽기 화면 설정이라 배경을 덮지 않고, 문서를 보면서 바로 바꿔 볼 수 있게 한다.
+  // 바깥을 누르거나 Esc, 설정 단추를 다시 누르면 닫힌다. 보관함과 함께 열리지 않는다
+  let setCloseT = null;
+  function settingsOpen() { const p = $('#nd-setpanel'); return !p.hidden && !p.classList.contains('closing'); }
+  function closeSettings() {
+    const p = $('#nd-setpanel');
+    if (p.hidden || p.classList.contains('closing')) return;
+    p.classList.add('closing');
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setCloseT = setTimeout(() => { p.hidden = true; p.classList.remove('closing'); }, reduce ? 0 : ANIM_OUT);
+  }
   function openSettings() {
+    if (settingsOpen()) { closeSettings(); return; }
+    closeDrawer(); closeModal();
     const s = S.settings, st = S.status || {}, m = st.meta || {};
-    $('#nd-modal-t').textContent = '설정';
-    $('.nd-modal-card').classList.remove('is-about');
-    $('#nd-modal-b').innerHTML = `
-      <div class="nd-row"><div class="l">화면 모드<small>시스템 설정에 맞춰 라이트 모드와 다크 모드를 자동으로 전환합니다</small></div>${seg('theme', [['system', '시스템'], ['light', '라이트'], ['dark', '다크']], s.theme || 'system')}</div>
-      <div class="nd-row"><div class="l">글꼴<small>기본 글꼴은 앱에 내장된 Pretendard입니다</small></div><select class="nd-select" id="nd-font">${fontOptions(s.font || 'pretendard', [])}</select></div>
-      <div class="nd-row"><div class="l">글자 크기<small id="nd-fs-v">${s.font_size || 15}px</small></div><input type="range" min="13" max="22" step="1" value="${s.font_size || 15}" id="nd-fs"></div>
-      <div class="nd-row"><div class="l">본문 너비</div>${seg('width', [['narrow', '좁게'], ['normal', '보통'], ['wide', '넓게']], s.width || 'normal')}</div>
+    $('#nd-set-b').innerHTML = `
+      <div class="nd-sub-h">읽기 화면</div>
+      <div class="nd-row stack"><div class="l">화면 모드<small>시스템 설정에 맞춰 라이트 모드와 다크 모드를 자동으로 전환합니다</small></div>${seg('theme', [['system', '시스템'], ['light', '라이트'], ['dark', '다크']], s.theme || 'system')}</div>
+      <div class="nd-row stack"><div class="l">글꼴<small>기본 글꼴은 앱에 내장된 Pretendard입니다</small></div><select class="nd-select" id="nd-font">${fontOptions(s.font || 'pretendard', [])}</select></div>
+      <div class="nd-row stack"><div class="l nd-row-kv">글자 크기<span class="v" id="nd-fs-v">${s.font_size || 15}px</span></div><input type="range" min="13" max="22" step="1" value="${s.font_size || 15}" id="nd-fs"></div>
+      <div class="nd-row stack"><div class="l">본문 너비</div>${seg('width', [['narrow', '좁게'], ['normal', '보통'], ['wide', '넓게']], s.width || 'normal')}</div>
       <div class="nd-row"><div class="l">오른쪽 목차 표시<small>창이 넓을 때 본문 오른쪽에 목차를 고정해 표시합니다</small></div>${sw('toc_sidebar', s.toc_sidebar !== false)}</div>
+      <div class="nd-sub-h">기록과 링크</div>
       <div class="nd-row"><div class="l">방문 기록 저장<small>열람한 문서를 보관함에 기록합니다. 기존 기록은 보관함에서 지울 수 있습니다</small></div>${sw('record_history', s.record_history !== false)}</div>
       <div class="nd-row"><div class="l">없는 문서 링크 구분<small>덤프에 없는 문서로 연결된 링크를 빨간색으로 표시합니다</small></div>${sw('link_check', s.link_check !== false)}</div>
-      ${window.ndNative ? `<div class="nd-row"><div class="l">새 버전 자동 확인<small>시작할 때와 몇 시간마다 GitHub에서 새 버전이 나왔는지 확인합니다. 앱 버전 외의 정보는 보내지 않습니다</small></div>${sw('update_check', s.update_check !== false)}</div>` : ''}
+      ${window.ndNative ? `<div class="nd-sub-h">업데이트</div><div class="nd-row"><div class="l">새 버전 자동 확인<small>시작할 때와 몇 시간마다 GitHub에서 새 버전이 나왔는지 확인합니다. 앱 버전 외의 정보는 보내지 않습니다</small></div>${sw('update_check', s.update_check !== false)}</div>` : ''}
       <div class="nd-sub-h">덤프 파일</div>
-      <div class="nd-row"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><div class="nd-btns">${st.ready ? '<button class="nd-btn" id="nd-close-db">연결 해제</button>' : ''}<button class="nd-btn" id="nd-change-db">${I.folder}${st.ready ? '파일 변경' : '파일 선택'}</button></div></div>
+      <div class="nd-row stack"><div class="l nd-kv"><code>${esc(st.db_path || '연결된 파일 없음')}</code><br>${st.doc_count ? '문서 ' + fmtNum(st.doc_count) + '개' : ''}${m.generated_at_iso ? ', ' + esc(m.generated_at_iso.replace('T', ' ')) + ' 생성' : ''}</div><div class="nd-btns">${st.ready ? '<button class="nd-btn" id="nd-close-db">연결 해제</button>' : ''}<button class="nd-btn" id="nd-change-db">${I.folder}${st.ready ? '파일 변경' : '파일 선택'}</button></div></div>
       <div class="nd-sub-h">초기화</div>
-      <div class="nd-row"><div class="l">설정 및 기록 초기화<small>설정과 방문 기록, 즐겨찾기를 모두 초기화하고 덤프 파일 연결을 해제합니다. 원본 덤프 파일은 삭제되지 않습니다</small></div><button class="nd-btn nd-danger" id="nd-reset">초기화</button></div>
-      ${S.native ? '' : `<div style="margin-top:18px;text-align:right"><button class="nd-btn" id="nd-quit">나무덤프 종료</button></div>`}`;
-    showModal();
-    $$('#nd-modal-b .nd-seg').forEach((g) => g.addEventListener('click', (e) => {
+      <div class="nd-row stack"><div class="l">설정 및 기록 초기화<small>설정과 방문 기록, 즐겨찾기를 모두 초기화하고 덤프 파일 연결을 해제합니다. 원본 덤프 파일은 삭제되지 않습니다</small></div><button class="nd-btn nd-danger" id="nd-reset">초기화</button></div>
+      ${S.native ? '' : `<div style="margin-top:18px;text-align:right"><button class="nd-btn" id="nd-quit">나무덤프 종료</button></div>`}
+      <div class="nd-set-foot"><button type="button" class="nd-set-about" id="nd-set-about">나무덤프에 관하여</button>${st.version ? `<span>버전 ${esc(st.version)}</span>` : ''}</div>`;
+    const panel = $('#nd-setpanel');
+    clearTimeout(setCloseT);
+    panel.classList.remove('closing');
+    panel.hidden = false;
+    $('#nd-set-b').scrollTop = 0;
+    $('#nd-set-about').onclick = () => { closeSettings(); openAbout(); };
+    $$('#nd-set-b .nd-seg').forEach((g) => g.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
       $$('button', g).forEach((x) => x.classList.toggle('on', x === b));
       saveSettings({ [g.dataset.set]: b.dataset.v });
     }));
     $('#nd-fs').oninput = (e) => { $('#nd-fs-v').textContent = e.target.value + 'px'; S.settings.font_size = +e.target.value; applyLayout(); };
     $('#nd-fs').onchange = (e) => saveSettings({ font_size: +e.target.value });
-    $$('#nd-modal-b [data-sw]').forEach((c) => c.onchange = () => {
+    $$('#nd-set-b [data-sw]').forEach((c) => c.onchange = () => {
       saveSettings({ [c.dataset.sw]: c.checked });
       if (c.dataset.sw === 'toc_sidebar' && S.doc) $('#nd-side').hidden = !c.checked || !$('#nd-side-toc').children.length || !location.pathname.startsWith('/w/');
       if (c.dataset.sw === 'record_history' && location.pathname === '/') refreshHomeLists();
@@ -1682,7 +1704,7 @@
     const cdb = $('#nd-close-db');
     if (cdb) cdb.onclick = async () => {
       try { await api('close_dump', {}); } catch (e) { toast(e.message); return; }
-      await refreshStatus(); closeModal(); go('/', { replace: true }); toast('덤프 파일 연결을 해제했습니다.');
+      await refreshStatus(); closeSettings(); go('/', { replace: true }); toast('덤프 파일 연결을 해제했습니다.');
     };
     // 되돌릴 수 없으므로 한 번 더 눌러야 지운다(보관함의 기록 지우기와 같은 방식)
     const rst = $('#nd-reset');
@@ -1851,6 +1873,7 @@
       // 처리했다고 알려야(preventDefault) 맥이 경고음을 내지 않는다
       if (closeThemeMenu(true)) { e.preventDefault(); return; }
       if (!$('#nd-modal').hidden) { e.preventDefault(); closeModal(); return; }
+      if (settingsOpen()) { e.preventDefault(); closeSettings(); return; }
       if (!$('#nd-drawer').hidden) { e.preventDefault(); closeDrawer(); return; }
       if (!$('#nd-find').hidden) { e.preventDefault(); closeFind(); return; }
       if (popFor) { e.preventDefault(); closePop(); return; }
@@ -1975,7 +1998,7 @@
     $('#nd-random').innerHTML = I.shuffle; $('#nd-star').innerHTML = I.star;
     $('#nd-lists').innerHTML = I.list; $('#nd-settings').innerHTML = I.gear;
     $('#nd-totop').innerHTML = I.up;
-    $$('#nd-drawer-close, #nd-modal-close, #nd-find-close').forEach((b) => { b.innerHTML = I.close; });
+    $$('#nd-drawer-close, #nd-set-close, #nd-modal-close, #nd-find-close').forEach((b) => { b.innerHTML = I.close; });
     $('#nd-drawer-tabs [data-tab="history"]').innerHTML = I.clock + '<span>최근 본 문서</span>';
     $('#nd-drawer-tabs [data-tab="bookmarks"]').innerHTML = I.star + '<span>즐겨찾기</span>';
     $('#nd-find-prev').innerHTML = I.up; $('#nd-find-next').innerHTML = I.down;
@@ -1994,6 +2017,11 @@
     $('#nd-totop').onclick = () => quickScrollTo(0);
     $('#nd-scrim').onclick = closeDrawer;
     $('#nd-drawer-close').onclick = closeDrawer;
+    $('#nd-set-close').onclick = closeSettings;
+    // 설정 패널은 배경을 덮지 않으므로, 바깥을 누르면 닫는다(설정 단추는 스스로 열고 닫는다)
+    document.addEventListener('mousedown', (e) => {
+      if (settingsOpen() && !(e.target.closest && e.target.closest('#nd-setpanel, #nd-settings, #nd-theme-menu, #nd-modal, .nd-update, #nd-toast'))) closeSettings();
+    }, true);
     $('#nd-drawer-tabs').onclick = (e) => { const b = e.target.closest('button'); if (b && b.dataset.tab !== drawerTab) openDrawer(b.dataset.tab); };
     $('#nd-drawer-b').addEventListener('click', async (e) => {
       if (e.target.closest('[data-open-settings]')) {

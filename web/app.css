@@ -153,6 +153,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 /* 홈 화면: 가운데에 로고와 무작위 문서, 보관함 단추가 있으므로 상단 막대의 같은 것은 숨긴다(자리는 남겨 다른 단추가 밀리지 않게).
    검색창(.nd-search.is-hidden)과 같은 모양으로 사라지고 나타난다. 누름 효과(transform)와 겹치지 않게 translate, scale을 따로 쓴다.
    숨길 때는 다 사라진 뒤에 visibility를 끄고(탭 이동, 클릭 막기), 나타날 때는 바로 켠다 */
+#nd-home { transition: background .15s, color .15s, transform .1s, opacity .22s var(--nd-ease); }
 .nd-brand, #nd-random, #nd-lists {
   transition: background .15s, color .15s, transform .1s,
     opacity .22s var(--nd-ease), translate .22s var(--nd-ease), scale .22s var(--nd-ease), visibility 0s;
@@ -515,6 +516,24 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-kv { font-size: 13px; color: var(--nd-muted); line-height: 1.75; }
 .nd-kv code { display: inline-block; font-family: var(--nd-mono); font-size: 12px; line-height: 1.5; word-break: break-all; }
 .nd-sub-h { font-size: 12px; font-weight: 700; color: var(--nd-faint); letter-spacing: .05em; margin: 18px 0 4px; }
+/* 설정 패널(보관함과 같은 틀). 폭이 좁아 큰 조작은 설명 아래로 내려 폭을 채운다(.stack). 스위치는 오른쪽에 그대로 */
+.nd-setpanel-t { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--nd-text); }
+.nd-setpanel .nd-drawer-b { padding: 0 20px 18px; }
+.nd-setpanel .nd-sub-h:first-child { margin-top: 14px; }
+.nd-setpanel .nd-row { gap: 14px; }
+.nd-setpanel .nd-row .l small { line-height: 1.5; word-break: keep-all; }
+.nd-row.stack { flex-direction: column; align-items: stretch; gap: 10px; }
+.nd-row.stack > :not(.l) { white-space: normal; }
+.nd-row.stack .nd-seg { display: flex; }
+.nd-row.stack .nd-seg button { flex: 1; }
+.nd-row.stack .nd-select { width: 100%; }
+.nd-row.stack input[type=range] { width: 100%; margin: 0; }
+.nd-row.stack > .nd-btn, .nd-row.stack > .nd-btns { align-self: flex-start; }
+.nd-row-kv { display: flex; justify-content: space-between; align-items: baseline; }
+.nd-row-kv .v { font-size: 13px; color: var(--nd-muted); font-variant-numeric: tabular-nums; }
+.nd-set-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; font-size: 12.5px; color: var(--nd-faint); }
+.nd-set-about { border: 0; background: none; padding: 4px 0; font: inherit; font-size: 13px; color: var(--nd-accent-2); cursor: pointer; }
+.nd-set-about:hover { text-decoration: underline; }
 .nd-modal-card.is-about { width: min(440px, 100%); }
 .nd-about-sheet { padding: 4px 0 6px; }
 .nd-about-hero {
