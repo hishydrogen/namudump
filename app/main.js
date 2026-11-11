@@ -238,8 +238,8 @@ function showContextMenu(win, p) {
 // 창이 여럿이어도 한 번만 묻도록, 진행 중인 요청과 최근 결과를 나눠 쓴다. 보내는 것은 앱 이름과 버전뿐이다.
 const RELEASE_API = update.latestReleaseApi(pkg.homepage);
 const UPDATE_FRESH = 30 * 60 * 1000;
-// 리눅스에서 어떤 형식으로 설치했는지 보고 같은 형식의 새 파일을 알린다. AppImage로 실행하면 APPIMAGE 환경 변수가 있고,
-// deb·rpm으로 설치하면 electron-builder가 resources/package-type 파일에 형식을 적어 둔다
+// 리눅스에서는 현재 설치된 형식을 확인해 같은 형식의 새 파일을 알린다. AppImage로 실행하면 APPIMAGE 환경 변수가 있고,
+// deb나 rpm으로 설치하면 electron-builder가 resources/package-type 파일에 형식을 적어 둔다
 function linuxPackage() {
   if (process.platform !== 'linux' || process.env.APPIMAGE) return 'appimage';
   try {

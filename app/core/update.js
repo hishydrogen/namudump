@@ -22,8 +22,8 @@ function isNewer(latest, current) {
 }
 
 // 운영체제와 CPU에 맞는 설치 파일(package.json의 artifactName 규칙: namudump-<버전>-<os>-<arch>…)
-// 리눅스는 설치한 형식(linux: 'appimage' | 'deb' | 'rpm')과 같은 형식을 고른다. CPU 이름은 형식마다 다르다
-// (x64: AppImage·rpm은 x86_64, deb는 amd64 / arm64: AppImage·deb는 arm64, rpm은 aarch64)
+// 리눅스는 현재 설치된 형식(linux: 'appimage' | 'deb' | 'rpm')에 맞는 파일을 고른다. 아키텍처 표기는 형식마다 다르다
+// (x64: AppImage와 rpm은 x86_64, deb는 amd64 / arm64: AppImage와 deb는 arm64, rpm은 aarch64)
 function pickAsset(assets, platform, arch, linux = 'appimage') {
   const list = Array.isArray(assets) ? assets : [];
   let re = null;

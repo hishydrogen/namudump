@@ -66,7 +66,7 @@ npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm
 ```
 
 - 패키징 설정은 `package.json`의 `build` 항목([electron-builder](https://www.electron.build))에 정의되어 있습니다.
-- **Linux 패키지**: AppImage, `.deb`, `.rpm` 세 가지를 만듭니다. `.deb`와 `.rpm`은 설치할 때 관리자 권한으로 `chrome-sandbox`에 권한을 주고 Ubuntu 24.04 이후용 AppArmor 설정을 넣으므로, 보안 격리가 켜진 채 실행됩니다. 두 형식 모두 관리자 주소가 있어야 만들어지므로 `maintainer`는 `deb` 항목이 아니라 `linux` 항목에 둡니다. `.rpm`을 만들려면 `rpmbuild`가 필요합니다(macOS는 `brew install rpm`, Ubuntu는 `sudo apt-get install rpm`). 새 버전 확인은 `APPIMAGE` 환경 변수와 `resources/package-type` 파일로 설치 형식을 판단해 같은 형식의 파일을 알립니다.
+- **Linux 패키지**: AppImage, `.deb`, `.rpm` 세 가지 형식으로 빌드합니다. `.deb`와 `.rpm`은 설치 과정에서 `chrome-sandbox`에 SUID 권한을 부여하고 Ubuntu 24.04 이상을 위한 AppArmor 설정을 등록하므로, 보안 격리가 켜진 상태로 실행됩니다. 두 형식 모두 패키지 관리자 이메일이 있어야 빌드되므로 `maintainer`는 `deb`가 아닌 `linux` 공통 항목에 지정합니다. `.rpm` 빌드에는 `rpmbuild`가 필요합니다(macOS는 `brew install rpm`, Ubuntu는 `sudo apt-get install rpm`). 새 버전 확인 시에는 `APPIMAGE` 환경 변수와 `resources/package-type` 파일로 설치 형식을 판별해 같은 형식의 파일을 안내합니다.
 - `.github/workflows/build.yml` 워크플로는 `v*` 태그가 푸시되거나 GitHub Actions에서 수동 실행(`workflow_dispatch`)될 때 5개 환경(macOS arm64, Windows x64 및 Arm64, Linux x64 및 arm64)에서 설치 파일을 빌드해 아티팩트로 업로드합니다.
 - **앱 이름 처리**: macOS 앱 번들과 실행 파일 이름은 영문 `NamuDump`로 유지합니다. Electron Helper 번들 이름이나 `Info.plist`의 `CFBundleName`에 한글이 들어가면 macOS에서 실행 직후 크래시(SIGTRAP)가 발생하기 때문입니다. 대신 `build/mac/InfoPlist.strings` 지역화 파일을 통해 Finder, Dock, Spotlight, 메뉴 막대에서는 '나무덤프'로 표시되게 합니다. Windows에서는 시작 메뉴와 프로그램 추가/제거 목록에, Linux에서는 데스크톱 엔트리에 '나무덤프'로 등록됩니다.
 - **아이콘 구성**

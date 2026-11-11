@@ -5,7 +5,7 @@
 <h1 align="center">나무덤프</h1>
 
 <p align="center">
-  <b>크로스플랫폼 지원 나무위키 오프라인 덤프 뷰어</b><br>
+  <b>크로스플랫폼 나무위키 오프라인 덤프 뷰어</b><br>
 </p>
 
 <p align="center">
@@ -70,7 +70,7 @@ xattr -dr com.apple.quarantine /Applications/NamuDump.app
 
 ### Linux
 
-사용하는 배포판에 맞는 형식의 파일을 내려받습니다.
+사용하는 배포판에 맞는 파일을 내려받습니다.
 
 | 형식 | 대상 배포판 |
 |---|---|
