@@ -1050,10 +1050,10 @@
         const over = w.scrollWidth - w.clientWidth;
         if (over <= 1) break;
         const factor = w.clientWidth / w.scrollWidth;
-        inner.forEach((e) => {
-          const cur = e.getBoundingClientRect().width;
-          e.style.maxWidth = Math.max(160, Math.floor(cur * factor) - 4) + 'px';
-        });
+        // 폭을 모두 잰 다음에 줄인다. 하나씩 재고 줄이면 앞의 틀이 줄어 표가 좁아진 뒤에 잰 틀(width:100%)은
+        // 이미 줄어든 폭에 같은 비율을 또 곱하게 되어 칸을 다 채우지 못한다
+        const curs = Array.from(inner, (e) => e.getBoundingClientRect().width);
+        inner.forEach((e, j) => { e.style.maxWidth = Math.max(160, Math.floor(curs[j] * factor) - 4) + 'px'; });
       }
     });
   }
@@ -1094,10 +1094,14 @@
     });
   }, { rootMargin: '600px 0px' }) : null;
   // 재생 단추의 삼각형: 무게중심((9.5+9.5+17)/3, 12)이 정확히 가운데(12, 12)에 오게 그린다
-  const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 7.6v8.8c0 .5.5.8.9.5l6.9-4.4c.4-.2.4-.8 0-1L10.4 7.1c-.4-.3-.9 0-.9.5z" fill="currentColor"/></svg>';
+  const PLAY_PATH = '<path d="M9.5 7.6v8.8c0 .5.5.8.9.5l6.9-4.4c.4-.2.4-.8 0-1L10.4 7.1c-.4-.3-.9 0-.9.5z" fill="currentColor"/>';
+  const PLAY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true">' + PLAY_PATH + '</svg>';
+  // 유튜브의 넓은 빨간 단추에서는 무게중심 맞춤이 오른쪽으로 쏠려 보인다(외곽 상자 가운데 13.55보다 1.55 오른쪽).
+  // 외곽 상자를 가운데에 두되, 시각 보정으로 약 3분의 1(0.55)만 오른쪽에 남긴다
+  const PLAY_SVG_YT = '<svg viewBox="1 0 24 24" aria-hidden="true">' + PLAY_PATH + '</svg>';
   // 재생할 수 있는 틀: 가운데 재생 단추, 아래 가장자리에 종류와 '브라우저에서 열기'
   function playCtl(kind, link, yt) {
-    return `<div class="ctl ctl-play"><button class="play${yt ? ' yt' : ''}" type="button" aria-label="${esc(kind)} 재생">${PLAY_SVG}</button>` +
+    return `<div class="ctl ctl-play"><button class="play${yt ? ' yt' : ''}" type="button" aria-label="${esc(kind)} 재생">${yt ? PLAY_SVG_YT : PLAY_SVG}</button>` +
       `<div class="cap"><span>${esc(kind)}</span>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">브라우저에서 열기</a>` : ''}</div></div>`;
   }
   // 재생 단추뿐 아니라 썸네일 어디를 눌러도 재생한다('브라우저에서 열기' 링크는 제외)
