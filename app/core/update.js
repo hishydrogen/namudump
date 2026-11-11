@@ -22,12 +22,18 @@ function isNewer(latest, current) {
 }
 
 // 운영체제와 CPU에 맞는 설치 파일(package.json의 artifactName 규칙: namudump-<버전>-<os>-<arch>…)
-function pickAsset(assets, platform, arch) {
+// 리눅스는 설치한 형식(linux: 'appimage' | 'deb' | 'rpm')과 같은 형식을 고른다. CPU 이름은 형식마다 다르다
+// (x64: AppImage·rpm은 x86_64, deb는 amd64 / arm64: AppImage·deb는 arm64, rpm은 aarch64)
+function pickAsset(assets, platform, arch, linux = 'appimage') {
   const list = Array.isArray(assets) ? assets : [];
   let re = null;
   if (platform === 'darwin') re = new RegExp(`-mac-${arch}\\.dmg$`, 'i');
   else if (platform === 'win32') re = new RegExp(`-win-${arch}-setup\\.exe$`, 'i');
-  else if (platform === 'linux') re = new RegExp(`-linux-${arch === 'x64' ? '(x64|x86_64)' : arch}\\.AppImage$`, 'i');
+  else if (platform === 'linux') {
+    const cpu = arch === 'x64' ? '(x64|x86_64|amd64)' : arch === 'arm64' ? '(arm64|aarch64)' : arch;
+    const ext = linux === 'deb' ? 'deb' : linux === 'rpm' ? 'rpm' : 'AppImage';
+    re = new RegExp(`-linux-${cpu}\\.${ext}$`, 'i');
+  }
   const a = re && list.find((x) => x && re.test(String(x.name || '')));
   const url = a ? String(a.browser_download_url || '') : '';
   return url.startsWith('https://github.com/') ? { name: a.name, url, size: Number(a.size) || 0 } : null;
@@ -51,7 +57,7 @@ function summarizeNotes(body) {
 }
 
 // API 응답 → 화면에 넘길 결과
-function interpret(rel, current, platform, arch) {
+function interpret(rel, current, platform, arch, linux = 'appimage') {
   if (!rel || rel.draft || rel.prerelease || !rel.tag_name) return { ok: false, error: '릴리스 정보를 읽지 못했습니다.' };
   const latest = String(rel.tag_name).replace(/^v/, '');
   const page = String(rel.html_url || '');
@@ -63,7 +69,7 @@ function interpret(rel, current, platform, arch) {
     name: String(rel.name || ''),
     published: String(rel.published_at || ''),
     page: page.startsWith('https://github.com/') ? page : '',
-    asset: pickAsset(rel.assets, platform, arch),
+    asset: pickAsset(rel.assets, platform, arch, linux),
     notes: summarizeNotes(rel.body),
   };
 }

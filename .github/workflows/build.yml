@@ -24,6 +24,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Linux의 .rpm을 만들려면 rpmbuild가 있어야 한다
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
       # 맥에서는 postinstall이 트랙패드 쓸기 모듈(native/mac-input)을 함께 빌드한다
       - run: npm ci
       - run: npm test
@@ -35,4 +38,6 @@ jobs:
             dist/*.dmg
             dist/*.exe
             dist/*.AppImage
+            dist/*-linux-*.deb
+            dist/*-linux-*.rpm
           if-no-files-found: error

@@ -238,6 +238,16 @@ function showContextMenu(win, p) {
 // 창이 여럿이어도 한 번만 묻도록, 진행 중인 요청과 최근 결과를 나눠 쓴다. 보내는 것은 앱 이름과 버전뿐이다.
 const RELEASE_API = update.latestReleaseApi(pkg.homepage);
 const UPDATE_FRESH = 30 * 60 * 1000;
+// 리눅스에서 어떤 형식으로 설치했는지 보고 같은 형식의 새 파일을 알린다. AppImage로 실행하면 APPIMAGE 환경 변수가 있고,
+// deb·rpm으로 설치하면 electron-builder가 resources/package-type 파일에 형식을 적어 둔다
+function linuxPackage() {
+  if (process.platform !== 'linux' || process.env.APPIMAGE) return 'appimage';
+  try {
+    const t = fs.readFileSync(path.join(process.resourcesPath, 'package-type'), 'utf8').trim();
+    if (t === 'deb' || t === 'rpm') return t;
+  } catch (e) { /* 파일이 없으면 AppImage로 본다 */ }
+  return 'appimage';
+}
 let updateLast = null, updateLastAt = 0, updateBusy = null;
 function checkUpdate(force) {
   if (!force && updateLast && updateLast.ok && Date.now() - updateLastAt < UPDATE_FRESH) return Promise.resolve(updateLast);
@@ -251,7 +261,7 @@ function checkUpdate(force) {
       });
       if (r.status === 404) return { ok: false, error: '공개된 릴리스가 없습니다.' };
       if (!r.ok) return { ok: false, error: 'GitHub 응답 오류(' + r.status + ')' };
-      return update.interpret(await r.json(), pkg.version, process.platform, process.arch);
+      return update.interpret(await r.json(), pkg.version, process.platform, process.arch, linuxPackage());
     } catch (e) {
       return { ok: false, error: e && e.name === 'TimeoutError' ? '응답 시간이 초과되었습니다.' : '인터넷에 연결되어 있지 않거나 GitHub에 접속하지 못했습니다.' };
     }
@@ -292,33 +302,6 @@ ipcMain.handle('nd', async (e, ep, body) => {
   if (ep === 'update_check') return checkUpdate(!!body.force);
   return { ok: false };
 });
-
-// ── 리눅스: 보안 격리 없이 실행될 때 알리기 ─────────────────
-// AppImage는 chrome-sandbox에 root 권한(SUID)을 줄 수 없어 사용자 네임스페이스로 격리한다.
-// Ubuntu 24.04 이후처럼 이것이 막힌 시스템에서는 AppRun이 알리지 않고 --no-sandbox를 붙여 실행한다.
-// 문서 속 YouTube 등 외부 웹 콘텐츠도 격리 없이 돌게 되므로, 알리고 계속할지 고르게 한다.
-const NO_SANDBOX_OK = path.join(SUPPORT, 'no-sandbox-ok');    // '다음부터 묻지 않기'(초기화하면 지운다, store.js)
-async function confirmNoSandbox() {
-  if (process.platform !== 'linux' || !app.commandLine.hasSwitch('no-sandbox')) return true;
-  if (fs.existsSync(NO_SANDBOX_OK)) return true;
-  let apparmor = false;
-  try { apparmor = fs.readFileSync('/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'utf8').trim() === '1'; } catch (e) { /* 없는 시스템 */ }
-  let detail = '이 시스템에서는 Chromium 보안 격리(샌드박스)를 사용할 수 없어 격리 없이 실행됩니다. ' +
-    '덤프 문서는 컴퓨터 안에서 읽지만, 문서 속 YouTube 동영상 등 인터넷에서 불러오는 콘텐츠도 격리 없이 실행됩니다.';
-  if (apparmor) {
-    detail += '\n\n원인: Ubuntu 24.04 이후의 AppArmor가 일반 사용자의 사용자 네임스페이스 사용을 제한하고 있습니다. ' +
-      '아래 명령어를 실행하면 허용할 수 있습니다. 시스템 전체에 적용되며, 재부팅하면 원래대로 돌아갑니다.\n\n' +
-      'sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0';
-  }
-  const r = await dialog.showMessageBox({
-    type: 'warning', title: APP_NAME, message: '보안 격리 없이 실행 중입니다', detail,
-    buttons: ['계속 실행', '종료'], defaultId: 0, cancelId: 1, noLink: true,
-    checkboxLabel: '다음부터 묻지 않기',
-  });
-  if (r.response === 1) return false;
-  if (r.checkboxChecked) { try { fs.mkdirSync(SUPPORT, { recursive: true }); fs.writeFileSync(NO_SANDBOX_OK, ''); } catch (e) { /* 무시 */ } }
-  return true;
-}
 
 // ── 메뉴 ────────────────────────────────────────────────
 function sendCommand(cmd) {
@@ -389,7 +372,6 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
-  if (!(await confirmNoSandbox())) { app.quit(); return; }
   app.setAboutPanelOptions({
     applicationName: APP_NAME, applicationVersion: pkg.version, version: '',
     copyright: INFO.copyright, website: pkg.homepage,

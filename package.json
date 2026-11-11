@@ -83,12 +83,16 @@
       "uninstallDisplayName": "나무덤프"
     },
     "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64", "arm64"] }],
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] },
+        { "target": "rpm", "arch": ["x64", "arm64"] }
+      ],
       "icon": "build/icon.png",
       "executableName": "namudump",
       "category": "Education",
       "synopsis": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어",
-      "maintainer": "Hishydrogen",
+      "maintainer": "Hishydrogen <196475444+hishydrogen@users.noreply.github.com>",
       "desktop": { "entry": { "Name": "나무덤프", "Comment": "인터넷 없이 읽는 나무위키 오프라인 덤프 뷰어", "StartupWMClass": "namudump" } }
     }
   }

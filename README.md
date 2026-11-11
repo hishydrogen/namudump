@@ -51,7 +51,7 @@
 |---|---|---|
 | **macOS 12 이상** | Apple Silicon (arm64) | `namudump-<버전>-mac-arm64.dmg` |
 | **Windows 10, 11** | x64, Arm64 | `namudump-<버전>-win-x64-setup.exe`<br>`namudump-<버전>-win-arm64-setup.exe` |
-| **Linux** | x64, arm64 | `namudump-<버전>-linux-x86_64.AppImage`<br>`namudump-<버전>-linux-arm64.AppImage` |
+| **Linux** | x64, arm64 | `namudump-<버전>-linux-amd64.deb`<br>`namudump-<버전>-linux-arm64.deb`<br>`namudump-<버전>-linux-x86_64.rpm`<br>`namudump-<버전>-linux-aarch64.rpm`<br>`namudump-<버전>-linux-x86_64.AppImage`<br>`namudump-<버전>-linux-arm64.AppImage` |
 
 ### macOS
 
@@ -70,10 +70,33 @@ xattr -dr com.apple.quarantine /Applications/NamuDump.app
 
 ### Linux
 
-내려받은 AppImage 파일에 실행 권한을 부여한 뒤 바로 실행합니다.
+사용하는 배포판에 맞는 형식의 파일을 내려받습니다.
+
+| 형식 | 대상 배포판 |
+|---|---|
+| `.deb` | Debian, Ubuntu, Linux Mint, Pop!_OS, elementary OS 등 Debian 계열 |
+| `.rpm` | Fedora, openSUSE, RHEL, Rocky Linux, AlmaLinux 등 RPM 계열 |
+| `.AppImage` | Arch Linux, Manjaro, EndeavourOS 등 그 밖의 배포판(설치 없이 실행) |
+
+`.deb` 파일은 아래 명령어로 설치합니다.
+
+```bash
+sudo apt install ./namudump-*.deb
+```
+
+`.rpm` 파일은 아래 명령어로 설치합니다. openSUSE에서는 `dnf` 대신 `zypper`를 사용합니다(`sudo zypper install ./namudump-*.rpm`).
+
+```bash
+sudo dnf install ./namudump-*.rpm
+```
+
+`.AppImage` 파일은 실행 권한을 부여한 뒤 바로 실행합니다.
 
 ```bash
 chmod +x namudump-*.AppImage
+```
+
+```bash
 ./namudump-*.AppImage
 ```
 

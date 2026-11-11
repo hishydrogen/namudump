@@ -8,6 +8,8 @@ const ASSETS = [
   'namudump-3.2.0-mac-arm64.dmg', 'namudump-3.2.0-mac-arm64.dmg.blockmap',
   'namudump-3.2.0-win-x64-setup.exe', 'namudump-3.2.0-win-arm64-setup.exe',
   'namudump-3.2.0-linux-x86_64.AppImage', 'namudump-3.2.0-linux-arm64.AppImage',
+  'namudump-3.2.0-linux-amd64.deb', 'namudump-3.2.0-linux-arm64.deb',
+  'namudump-3.2.0-linux-x86_64.rpm', 'namudump-3.2.0-linux-aarch64.rpm',
 ].map((name) => ({ name, size: 100, browser_download_url: 'https://github.com/hishydrogen/NamuDump/releases/download/v3.2.0/' + name }));
 
 test('저장소 주소에서 최신 릴리스 API 주소', () => {
@@ -32,6 +34,24 @@ test('운영체제와 CPU에 맞는 설치 파일', () => {
   assert.equal(U.pickAsset(ASSETS, 'darwin', 'x64'), null);      // 인텔 맥용은 만들지 않는다 → 릴리스 페이지로
   const evil = [{ name: 'namudump-3.2.0-win-x64-setup.exe', browser_download_url: 'https://evil.example/x.exe' }];
   assert.equal(U.pickAsset(evil, 'win32', 'x64'), null);         // GitHub 밖 주소는 쓰지 않는다
+});
+
+test('리눅스는 설치한 형식과 같은 형식의 파일', () => {
+  const pick = (arch, kind) => U.pickAsset(ASSETS, 'linux', arch, kind).name;
+  assert.equal(pick('x64', 'appimage'), 'namudump-3.2.0-linux-x86_64.AppImage');
+  assert.equal(pick('x64', 'deb'), 'namudump-3.2.0-linux-amd64.deb');
+  assert.equal(pick('x64', 'rpm'), 'namudump-3.2.0-linux-x86_64.rpm');
+  assert.equal(pick('arm64', 'appimage'), 'namudump-3.2.0-linux-arm64.AppImage');
+  assert.equal(pick('arm64', 'deb'), 'namudump-3.2.0-linux-arm64.deb');
+  assert.equal(pick('arm64', 'rpm'), 'namudump-3.2.0-linux-aarch64.rpm');
+  assert.equal(pick('x64'), 'namudump-3.2.0-linux-x86_64.AppImage');     // 형식을 모르면 AppImage
+  // 이름의 대소문자는 가리지 않는다
+  const upper = [{ name: 'NamuDump-3.2.0-Linux-AARCH64.RPM', browser_download_url: 'https://github.com/x/y/z.rpm' }];
+  assert.equal(U.pickAsset(upper, 'linux', 'arm64', 'rpm').name, 'NamuDump-3.2.0-Linux-AARCH64.RPM');
+  // 같은 형식의 파일이 없으면 다른 형식으로 대신하지 않는다 → 릴리스 페이지로
+  assert.equal(U.pickAsset(ASSETS.filter((a) => !a.name.endsWith('.rpm')), 'linux', 'x64', 'rpm'), null);
+  const r = U.interpret({ tag_name: 'v3.2.0', assets: ASSETS }, '3.1.1', 'linux', 'arm64', 'deb');
+  assert.equal(r.asset.name, 'namudump-3.2.0-linux-arm64.deb');
 });
 
 test('변경 내용 요약', () => {

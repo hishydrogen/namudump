@@ -62,10 +62,11 @@ npm test             # 테스트 실행(임시 SQLite 덤프로 읽기, 검색, 
 ```bash
 npm run dist:mac      # dist/namudump-<버전>-mac-arm64.dmg
 npm run dist:win      # dist/namudump-<버전>-win-x64-setup.exe, -win-arm64-setup.exe
-npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm64.AppImage
+npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm64.AppImage, -linux-amd64.deb, -linux-arm64.deb, -linux-x86_64.rpm, -linux-aarch64.rpm
 ```
 
 - 패키징 설정은 `package.json`의 `build` 항목([electron-builder](https://www.electron.build))에 정의되어 있습니다.
+- **Linux 패키지**: AppImage, `.deb`, `.rpm` 세 가지를 만듭니다. `.deb`와 `.rpm`은 설치할 때 관리자 권한으로 `chrome-sandbox`에 권한을 주고 Ubuntu 24.04 이후용 AppArmor 설정을 넣으므로, 보안 격리가 켜진 채 실행됩니다. 두 형식 모두 관리자 주소가 있어야 만들어지므로 `maintainer`는 `deb` 항목이 아니라 `linux` 항목에 둡니다. `.rpm`을 만들려면 `rpmbuild`가 필요합니다(macOS는 `brew install rpm`, Ubuntu는 `sudo apt-get install rpm`). 새 버전 확인은 `APPIMAGE` 환경 변수와 `resources/package-type` 파일로 설치 형식을 판단해 같은 형식의 파일을 알립니다.
 - `.github/workflows/build.yml` 워크플로는 `v*` 태그가 푸시되거나 GitHub Actions에서 수동 실행(`workflow_dispatch`)될 때 5개 환경(macOS arm64, Windows x64 및 Arm64, Linux x64 및 arm64)에서 설치 파일을 빌드해 아티팩트로 업로드합니다.
 - **앱 이름 처리**: macOS 앱 번들과 실행 파일 이름은 영문 `NamuDump`로 유지합니다. Electron Helper 번들 이름이나 `Info.plist`의 `CFBundleName`에 한글이 들어가면 macOS에서 실행 직후 크래시(SIGTRAP)가 발생하기 때문입니다. 대신 `build/mac/InfoPlist.strings` 지역화 파일을 통해 Finder, Dock, Spotlight, 메뉴 막대에서는 '나무덤프'로 표시되게 합니다. Windows에서는 시작 메뉴와 프로그램 추가/제거 목록에, Linux에서는 데스크톱 엔트리에 '나무덤프'로 등록됩니다.
 - **아이콘 구성**
