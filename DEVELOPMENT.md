@@ -71,7 +71,7 @@ npm run dist:linux    # dist/namudump-<버전>-linux-x86_64.AppImage, -linux-arm
 - **아이콘 구성**
   - 아이콘은 가운데 잎맥을 따라 접힌 나뭇잎 하나가 펼쳐진 책처럼 보이도록 디자인했습니다. 밝은 오른쪽 면에는 세 줄의 틈을 내어 본문 글줄을 형상화했습니다.
   - **macOS**: Xcode Icon Composer 원본(`build/AppIcon.icon`)에서 컴파일한 `Assets.car`(macOS 26 이상 Liquid Glass 아이콘)와 `AppIcon.icns`(하위 macOS 및 `.dmg` 볼륨 아이콘)를 사용합니다. 빌드 결과물이 저장소에 포함되어 있어 아이콘 자체를 수정하지 않는 한 빌드 시 Xcode가 필요하지 않습니다.
-  - **앱 화면 속 아이콘(macOS)**: 홈 화면, 정보 창, 업데이트 알림에는 Dock과 같은 Liquid Glass 아이콘을 미리 렌더링한 `web/icon-mac.png`(라이트 모드), `web/icon-mac-dark.png`(다크 모드)를 사용합니다(`app.css`의 `--nd-app-icon`). 아이콘 원본을 수정한 경우 Icon Composer 안의 `ictool`로 다시 생성합니다.
+  - **앱 화면 속 아이콘(macOS)**: 시작 안내(덤프 선택), 정보 창, 업데이트 알림에는 Dock과 같은 Liquid Glass 아이콘을 미리 렌더링한 `web/icon-mac.png`(라이트 모드), `web/icon-mac-dark.png`(다크 모드)를 사용합니다(`app.css`의 `--nd-app-icon`). 아이콘 원본을 수정한 경우 Icon Composer 안의 `ictool`로 다시 생성합니다.
     ```bash
     IC="/Applications/Xcode.app/Contents/Applications/Icon Composer.app/Contents/Executables/ictool"
     "$IC" build/AppIcon.icon --export-image --output-file web/icon-mac.png --platform macOS --rendition Default --width 128 --height 128 --scale 2

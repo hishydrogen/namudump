@@ -5,7 +5,7 @@
   --nd-tb: #cfd6db;
   --nd-quote-bg: #f5f7f8;
   --nd-fold-bg: #f3f5f6;
-  font-size: 1em; line-height: 1.75; overflow-wrap: break-word; word-break: normal;
+  font-size: 1em; line-height: 1.75; overflow-wrap: break-word; word-break: normal; text-wrap: wrap;
 }
 :root[data-theme="dark"] .nd-content { --nd-tb: #3b4248; --nd-quote-bg: #1e2226; --nd-fold-bg: #1f2327; }
 .nd-content::after { content: ""; display: block; clear: both; }

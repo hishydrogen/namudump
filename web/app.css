@@ -94,6 +94,9 @@ body {
   margin: 0; background: var(--nd-bg); color: var(--nd-text);
   font: var(--nd-fs)/1.6 var(--nd-font); -webkit-font-smoothing: antialiased;
   min-height: 100vh; padding-top: var(--nd-top-h); box-sizing: border-box;
+  /* 앱 UI 문구는 어절 단위로 줄을 바꾸고, 마지막 줄에 한 어절만 남지 않게 한다.
+     띄어쓰기 없는 긴 경로나 주소는 넘치지 않게 끊는다. 문서 본문(.nd-content)은 content.css에서 따로 정한다 */
+  word-break: keep-all; overflow-wrap: break-word; text-wrap: pretty;
 }
 button { font: inherit; color: inherit; }
 a { color: var(--nd-link); text-decoration: none; }
@@ -145,7 +148,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-native .nd-sugg, .nd-native .nd-scrim, .nd-native .nd-drawer, .nd-native .nd-modal, .nd-native .nd-pop,
 .nd-native .nd-find, .nd-native .nd-toast, .nd-native .nd-menu, .nd-native .nd-update { -webkit-app-region: no-drag; }
 /* 홈과 시작 안내 화면에서 상단 검색창이 숨겨진 동안에는 그 자리도 잡고 창을 끌 수 있게 한다 */
-.nd-native .nd-search.is-hidden, .nd-native .nd-search.is-hidden input, .nd-native .nd-topbar.is-home .nd-brand,
+.nd-native .nd-search.is-hidden, .nd-native .nd-search.is-hidden input,
 .nd-native .nd-topbar button:disabled { -webkit-app-region: drag; }
 .nd-native.nd-fullscreen .nd-topbar { -webkit-app-region: no-drag; }
 /* 맥: 신호등 단추 자리를 비운다 */
@@ -156,18 +159,10 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 .nd-brand-slot { width: 290px; flex: none; min-width: 0; margin-right: 6px; display: flex; align-items: center; }
 .nd-brand { position: relative; display: inline-flex; align-items: center; gap: 9px; color: var(--nd-text); font-weight: 700; white-space: nowrap; padding: 5px 8px 5px 5px; margin-left: -5px; border-radius: 10px; }
 .nd-brand:hover { background: var(--nd-hover); }
-/* 홈 화면: 가운데에 로고와 무작위 문서, 보관함 단추가 있으므로 상단 막대의 같은 것은 숨긴다(자리는 남겨 다른 단추가 밀리지 않게).
-   검색창(.nd-search.is-hidden)과 같은 모양으로 사라지고 나타난다. 누름 효과(transform)와 겹치지 않게 translate, scale을 따로 쓴다.
-   숨길 때는 다 사라진 뒤에 visibility를 끄고(탭 이동, 클릭 막기), 나타날 때는 바로 켠다 */
+/* 홈 화면: 상단 막대 우측 도구 단추들은 항상 제자리에 두고, 왼쪽 브랜드는 이미 홈이므로 클릭만 막는다 */
 #nd-home { transition: background .15s, color .15s, transform .1s, opacity .22s var(--nd-ease); }
-.nd-brand, #nd-random, #nd-lists {
-  transition: background .15s, color .15s, transform .1s,
-    opacity .22s var(--nd-ease), translate .22s var(--nd-ease), scale .22s var(--nd-ease), visibility 0s;
-}
-.nd-topbar.is-home .nd-brand, .nd-topbar.is-home #nd-random, .nd-topbar.is-home #nd-lists {
-  opacity: 0; translate: 0 -4px; scale: .98; visibility: hidden; pointer-events: none;
-  transition-delay: 0s, 0s, 0s, 0s, 0s, 0s, .22s;
-}
+.nd-topbar.is-home .nd-brand { pointer-events: none; }
+.nd-native .nd-topbar.is-home .nd-brand { -webkit-app-region: drag; }
 /* 앱을 켜서 처음 그릴 때는 전환 없이 바로 놓는다(app.js) */
 .nd-topbar.no-anim, .nd-topbar.no-anim * { transition: none !important; }
 .nd-brand-t, .nd-brand-doc { transition: opacity var(--nd-t-in) var(--nd-ease), transform var(--nd-t-in) var(--nd-ease); }
@@ -286,67 +281,121 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 :root.nd-mac[data-theme="dark"] { --nd-app-icon: url(/icon-mac-dark.png); }
 .nd-appicon { display: block; flex: none; background: var(--nd-app-icon) center/contain no-repeat; }
 
-/* ── 처음 화면: 로고 타이틀, 중앙 검색창, 빠른 동작, 2단 요약 카드 ── */
-.nd-home { max-width: 720px; margin: 0 auto; padding: clamp(32px, 9vh, 88px) 12px 48px; }
-.nd-hero { text-align: center; margin-bottom: 26px; }
+/* ── 처음 화면: 로고 없이 단단한 하나의 검색 팔레트(Command Surface) ── */
 .nd-hero-logo {
   width: 72px; height: 72px; margin: 0 auto 14px;
   background: var(--nd-app-icon) center/contain no-repeat;
   filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .1));
 }
-/* 어두운 화면에서는 어두운 아이콘 판이 배경에 묻히지 않게 그림자를 조금 더 깊게 */
 :root[data-theme="dark"] .nd-hero-logo { filter: drop-shadow(0 8px 22px rgba(0, 0, 0, .45)); }
-.nd-hero-title { font-size: 30px; font-weight: 700; letter-spacing: -.04em; line-height: 1.2; margin: 0; color: var(--nd-text); }
-.nd-hero-sub { margin: 6px 0 0; font-size: 14px; color: var(--nd-faint); }
-.nd-bigsearch { position: relative; max-width: 580px; margin: 0 auto; }
+/* 창 맨 아래에서 위로 번져 올라오는 은은한 초록빛: 캔버스에서 배경색과 강조색을 부동소수점으로 보간하고 삼각 분포 디더링을 더해 계단 현상을 없앤다(app.js의 drawHomeGlow) */
+.nd-home-glow {
+  position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: min(62vh, 560px);
+  pointer-events: none; z-index: 0; display: block;
+}
+/* 쓸기 미리 보기 안에서는 고정 위치 그라데이션을 숨긴다 */
+.nd-swipe-view .nd-home-glow { display: none; }
+.nd-home {
+  position: relative; z-index: 1;
+  max-width: 640px; margin: 0 auto;
+  padding: clamp(56px, 16vh, 148px) 12px 48px;
+  transition: padding-top .28s var(--nd-ease);
+}
+.nd-home.is-empty { padding-top: clamp(96px, 24vh, 210px); }
+.nd-home-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 6px; margin-bottom: 10px;
+}
+.nd-home-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--nd-muted); font-variant-numeric: tabular-nums;
+}
+.nd-home-status .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--nd-accent);
+  box-shadow: 0 0 0 3px var(--nd-accent-soft); flex: none;
+}
+.nd-home-status .txt { font-weight: 500; }
+.nd-home-status .cnt {
+  padding: 1px 7px; border-radius: 6px; background: var(--nd-card);
+  border: 1px solid var(--nd-line); color: var(--nd-faint); font-size: 11.5px; font-weight: 500;
+}
+.nd-home-dumpbtn {
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; margin-right: -4px;
+  border: 0; border-radius: 7px; background: none; color: var(--nd-faint);
+  font: 500 12.5px var(--nd-font); cursor: pointer; transition: color .15s, background-color .15s;
+}
+.nd-home-dumpbtn:hover { color: var(--nd-text); background: var(--nd-hover); }
+.nd-home-dumpbtn svg { width: 13.5px; height: 13.5px; }
+/* 통합 팔레트: 검색창 + 2단 요약 목록이 같은 폭으로 맞물린다 */
+.nd-palette {
+  background: var(--nd-card); border: 1px solid var(--nd-line); border-radius: 16px;
+  box-shadow: var(--nd-shadow); transition: border-color .18s var(--nd-ease), box-shadow .18s var(--nd-ease);
+}
+/* 아래 목록이 없을 때는 일반 검색창처럼 외곽 테두리로 포커스를 알리고, 목록이 있을 때는 위아래 경계선만 은은하게 물들인다 */
+.nd-home.is-empty .nd-palette:has(#nd-bigq:focus) {
+  border-color: var(--nd-accent);
+  box-shadow: 0 0 0 3px var(--nd-accent-soft), var(--nd-shadow);
+}
+.nd-home:not(.is-empty) .nd-palette:has(#nd-bigq:focus) {
+  border-color: var(--nd-line-2);
+}
+.nd-home:not(.is-empty) .nd-palette:has(#nd-bigq:focus) .nd-home-lists {
+  border-top-color: rgba(0, 164, 149, .45);
+}
+:root[data-theme="dark"] .nd-home:not(.is-empty) .nd-palette:has(#nd-bigq:focus) .nd-home-lists {
+  border-top-color: rgba(31, 194, 177, .45);
+}
+.nd-bigsearch { position: relative; }
 .nd-bigsearch input {
-  width: 100%; height: 52px; border-radius: 15px; border: 1px solid var(--nd-line); background: var(--nd-card);
-  padding: 0 58px 0 48px; font: 16.5px var(--nd-font); color: var(--nd-text); outline: none;
-  box-shadow: var(--nd-shadow); transition: border-color .15s, box-shadow .15s;
+  width: 100%; height: 56px; border: 0; border-radius: 16px; background: transparent;
+  padding: 0 64px 0 50px; font: 17px var(--nd-font); color: var(--nd-text); outline: none;
 }
-.nd-bigsearch input:focus { border-color: var(--nd-accent); box-shadow: 0 0 0 4px var(--nd-accent-soft), var(--nd-shadow); }
+.nd-bigsearch input::placeholder { color: var(--nd-faint); }
 .nd-bigsearch input:focus ~ .nd-kbd { opacity: 0; }
-.nd-bigsearch .ic { position: absolute; left: 16px; top: 15px; color: var(--nd-faint); pointer-events: none; }
+.nd-bigsearch .ic { position: absolute; left: 18px; top: 17px; color: var(--nd-faint); pointer-events: none; transition: color .15s; }
+.nd-bigsearch:focus-within .ic { color: var(--nd-accent); }
 .nd-bigsearch .ic svg { width: 21px; height: 21px; }
-.nd-bigsearch .nd-kbd { right: 14px; top: 14px; transition: opacity .15s; }
-.nd-bigsearch .nd-sugg { top: 58px; text-align: left; }
-.nd-home-acts { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.nd-pill-act {
-  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px;
-  border-radius: 999px; border: 1px solid var(--nd-line); background: var(--nd-card);
-  color: var(--nd-muted); font: 500 13px var(--nd-font); cursor: pointer;
-  transition: color .15s, border-color .15s, background-color .15s, transform .1s;
-}
-.nd-pill-act:hover { color: var(--nd-text); border-color: var(--nd-line-2); background: var(--nd-hover); }
-.nd-pill-act:active { transform: scale(.97); }
-.nd-pill-act svg { width: 14.5px; height: 14.5px; color: var(--nd-faint); transition: color .15s; }
-.nd-pill-act:hover svg { color: var(--nd-accent); }
-.nd-pill-act.nd-dump-pill { font-variant-numeric: tabular-nums; }
+.nd-bigsearch .nd-kbd { right: 16px; top: 16px; transition: opacity .15s; }
+.nd-bigsearch .nd-sugg { left: -1px; right: -1px; top: 62px; text-align: left; }
 .nd-home-lists {
-  margin-top: 32px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  display: flex; border-top: 1px solid var(--nd-line); overflow: hidden;
+  border-radius: 0 0 15px 15px;
+  max-height: 320px; opacity: 1;
+  transition: max-height .28s var(--nd-ease), opacity .22s var(--nd-ease), border-color .22s var(--nd-ease);
 }
-.nd-home-lists.single { grid-template-columns: minmax(0, 440px); justify-content: center; }
-.nd-home-lists:empty { display: none; }
-@media (max-width: 640px) { .nd-home-lists { grid-template-columns: 1fr; } }
-.nd-hcard {
-  background: var(--nd-card); border: 1px solid var(--nd-line); border-radius: 14px;
-  padding: 12px 10px 8px; box-shadow: 0 1px 2px rgba(16, 24, 32, .03);
+.nd-home-lists.is-hidden { max-height: 0; opacity: 0; border-top-color: transparent; pointer-events: none; }
+.nd-home-lists.no-anim, .nd-home-lists.no-anim .nd-hslot { transition: none !important; }
+.nd-hslot {
+  flex: 1 1 0%; min-width: 0; overflow: hidden; opacity: 1;
+  transition: flex-grow .28s var(--nd-ease), opacity .2s var(--nd-ease);
 }
-.nd-hcard-h {
+.nd-hslot.off { flex-grow: 0.00001; opacity: 0; pointer-events: none; }
+#nd-hslot-b { border-left: 1px solid transparent; transition: flex-grow .28s var(--nd-ease), opacity .2s var(--nd-ease), border-color .2s var(--nd-ease); }
+.nd-home-lists.has-h.has-b #nd-hslot-b { border-left-color: var(--nd-line); }
+.nd-hcol { padding: 12px 10px 10px; min-width: 240px; }
+@media (max-width: 600px) {
+  .nd-home-lists { flex-direction: column; max-height: 560px; }
+  .nd-hslot { flex: none; max-height: 280px; transition: max-height .28s var(--nd-ease), opacity .2s var(--nd-ease); }
+  .nd-hslot.off { max-height: 0; }
+  #nd-hslot-b { border-left: 0; border-top: 1px solid transparent; }
+  .nd-home-lists.has-h.has-b #nd-hslot-b { border-left-color: transparent; border-top-color: var(--nd-line); }
+  .nd-hcol { min-width: 0; }
+}
+.nd-hcol-h {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 6px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--nd-line);
+  padding: 0 8px 6px;
 }
-.nd-hcard-h .lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--nd-muted); }
-.nd-hcard-h .lbl svg { width: 14px; height: 14px; color: var(--nd-accent); }
-.nd-hcard-h button {
-  display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; padding: 3px 6px; margin-right: -4px;
+.nd-hcol-h .lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--nd-faint); letter-spacing: .01em; }
+.nd-hcol-h .lbl svg { width: 13.5px; height: 13.5px; color: var(--nd-muted); }
+.nd-hcol-h button {
+  display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; padding: 2px 6px; margin-right: -4px;
   border-radius: 6px; font: 500 12px var(--nd-font); color: var(--nd-faint); cursor: pointer; transition: color .15s, background-color .15s;
 }
-.nd-hcard-h button:hover { color: var(--nd-text); background: var(--nd-hover); }
-.nd-hcard-h button svg { width: 13px; height: 13px; }
-.nd-hcard-b { display: flex; flex-direction: column; gap: 1px; }
+.nd-hcol-h button:hover { color: var(--nd-text); background: var(--nd-hover); }
+.nd-hcol-h button svg { width: 12.5px; height: 12.5px; }
+.nd-hcol-b { display: flex; flex-direction: column; gap: 1px; }
 .nd-hitem {
-  display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 8px;
+  display: flex; align-items: center; gap: 7px; height: 33px; padding: 0 8px;
   border-radius: 8px; color: var(--nd-text); font-size: 13.5px; transition: background-color .12s;
 }
 .nd-hitem:hover { text-decoration: none; background: var(--nd-hover); }
@@ -447,7 +496,7 @@ input, textarea, .nd-kv code { -webkit-user-select: text; user-select: text; }
 @media (prefers-reduced-motion: reduce) {
   .nd-drawer, .nd-scrim, .nd-drawer.closing, .nd-scrim.closing, .nd-drawer-list.from-right, .nd-drawer-list.from-left,
   .nd-modal, .nd-modal-card, .nd-modal.closing, .nd-modal.closing .nd-modal-card { animation: none; }
-  #nd-drawer-tabs::before, .nd-seg.pill::before { transition: none; }
+  #nd-drawer-tabs::before, .nd-seg.pill::before, .nd-home, .nd-home-lists, .nd-hslot { transition: none; }
   .nd-find, .nd-pop, .nd-toast, .nd-sugg, .nd-update { animation: none; }
 }
 .nd-drawer-h { height: var(--nd-top-h); flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 16px; border-bottom: 1px solid var(--nd-line); }

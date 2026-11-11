@@ -155,6 +155,7 @@
     const segEl = document.querySelector('#nd-set-b [data-set="theme"]');
     if (segEl) { segEl.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === mode)); movePill(segEl); }
     applyDarkStyles(document.querySelector('.nd-content'));
+    drawHomeGlow();
     syncWindowBg();
   }
   // 창 바탕색을 화면 바탕색에 맞춘다(창 크기가 바뀌는 순간 검거나 흰 빈 곳이 보이지 않게).
@@ -575,7 +576,7 @@
     bar.classList.toggle('is-home', !!opts.home);
     // 홈에서는 홈 단추도 뒤로, 앞으로처럼 갈 곳이 없으니 흐리게 하고 누를 수 없게 한다
     $('#nd-home').disabled = !!opts.home;
-    // 첫 화면은 전환 없이 그린다(켜자마자 상단 막대의 단추가 사라지는 모습이 보이지 않게)
+    // 첫 화면은 전환 없이 그린다(켜자마자 상단 막대의 검색창이 사라지는 모습이 보이지 않게)
     if (!setPage.drawn) { setPage.drawn = true; bar.classList.add('no-anim'); requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.remove('no-anim'))); }
     // 문서 CSS는 지금 문서(#nd-main 안)에만 듣게 한다. 미리 보기 쪽은 따로 범위를 바꿔 넣는다
     // :where()는 우선순위를 올리지 않아 원래 CSS와 같은 세기로 듣는다
@@ -595,37 +596,100 @@
     const d = /^(\d{4})-(\d{2})-(\d{2})/.exec(g);
     return d ? `${+d[1]}년 ${+d[2]}월 ${+d[3]}일` : '';
   }
+  // 홈 화면 바닥 빛 번짐: CSS 그라데이션이나 filter: blur는 8비트 알파 합성 단계에서 계단(밴딩)이 남는다.
+  // 배경색과 강조색을 부동소수점으로 직접 보간한 뒤 삼각 분포(TPDF) 디더링을 더해 양자화하므로 계단이 생기지 않는다
+  function drawHomeGlow() {
+    const cv = document.getElementById('nd-home-glow');
+    if (!cv || cv.tagName !== 'CANVAS') return;
+    const cs = getComputedStyle(document.documentElement);
+    const bg = parseColor(cs.getPropertyValue('--nd-bg'));
+    const ac = parseColor(cs.getPropertyValue('--nd-accent'));
+    if (!bg || !ac) return;
+    const dark = resolvedTheme() === 'dark';
+    const strength = dark ? 0.145 : 0.115;
+    const w = Math.min(1600, Math.max(960, window.innerWidth)), h = 520;
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ctx = cv.getContext('2d');
+    const img = ctx.createImageData(w, h);
+    const d = img.data;
+    // 빠르고 고른 의사 난수(xorshift32)로 픽셀마다 -1에서 1 사이의 삼각 분포 노이즈를 만든다
+    let seed = 0x9e3779b9;
+    const rand = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; };
+    let p = 0;
+    for (let y = 0; y < h; y++) {
+      const ny = (h - 1 - y) / (h - 1);          // 0(맨 아래) - 1(맨 위)
+      const lin = Math.max(0, 1 - ny / 0.85);
+      const vFade = lin * lin * 0.25;
+      for (let x = 0; x < w; x++) {
+        const nx = (x / (w - 1) - 0.5) / 0.62;
+        const my = (ny + 0.08) / 0.92;
+        const r2 = nx * nx + my * my;
+        const rad = r2 < 1 ? (1 - r2) * (1 - r2) : 0;
+        const t = strength * Math.min(1, rad * 0.88 + vFade);
+        // 같은 양의 노이즈로 세 채널을 함께 흔들어 색 얼룩(크로마 노이즈) 없이 밝기 계단만 없앤다
+        const dither = (rand() + rand() - 1) * 0.95;
+        d[p] = Math.max(0, Math.min(255, Math.round(bg[0] + (ac[0] - bg[0]) * t + dither)));
+        d[p + 1] = Math.max(0, Math.min(255, Math.round(bg[1] + (ac[1] - bg[1]) * t + dither)));
+        d[p + 2] = Math.max(0, Math.min(255, Math.round(bg[2] + (ac[2] - bg[2]) * t + dither)));
+        d[p + 3] = 255;
+        p += 4;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
   async function renderHome() {
     setTitle('나무덤프', '');
     const st = S.status;
     const kbd = IS_MAC ? '⌘K' : 'Ctrl K';
+    const dDate = dumpDate();
     setPage(`
-      <div class="nd-home">
-        <div class="nd-hero">
-          <div class="nd-hero-logo"></div>
-          <h1 class="nd-hero-title">나무덤프</h1>
-          <p class="nd-hero-sub">인터넷 없이 읽는 나무위키</p>
+      <canvas class="nd-home-glow" id="nd-home-glow" aria-hidden="true"></canvas>
+      <div class="nd-home" id="nd-home-wrap">
+        <div class="nd-home-top">
+          <div class="nd-home-status">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="txt">${dDate ? esc(dDate) + ' 기준 덤프' : '오프라인 덤프 연결됨'}</span>
+            ${st.doc_count ? `<span class="cnt">${fmtNum(st.doc_count)}개 문서</span>` : ''}
+          </div>
+          <button type="button" class="nd-home-dumpbtn" id="nd-home-dump" title="다른 덤프 파일 열기">${I.folder}<span>덤프 변경</span></button>
         </div>
-        <div class="nd-bigsearch" id="nd-bigsearch">
-          <span class="ic">${I.search}</span>
-          <input id="nd-bigq" type="search" placeholder="${st.doc_count ? `문서 ${fmtNum(st.doc_count)}개에서 제목 검색…` : '문서 제목 검색…'}" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
-          <kbd class="nd-kbd">${kbd}</kbd>
-          <div class="nd-sugg" id="nd-bigsugg" hidden></div>
+        <div class="nd-palette">
+          <div class="nd-bigsearch" id="nd-bigsearch">
+            <span class="ic">${I.search}</span>
+            <input id="nd-bigq" type="search" placeholder="문서 제목 검색…" autocomplete="off" spellcheck="false" aria-label="문서 제목 검색">
+            <kbd class="nd-kbd">${kbd}</kbd>
+            <div class="nd-sugg" id="nd-bigsugg" hidden></div>
+          </div>
+          <div class="nd-home-lists is-hidden" id="nd-home-lists">
+            <div class="nd-hslot" id="nd-hslot-h">
+              <section class="nd-hcol">
+                <header class="nd-hcol-h">
+                  <span class="lbl">${I.clock}<span>최근 본 문서</span></span>
+                  <button type="button" id="nd-home-more-h">전체 보기${I.fwd}</button>
+                </header>
+                <div class="nd-hcol-b" id="nd-hcol-hb"></div>
+              </section>
+            </div>
+            <div class="nd-hslot" id="nd-hslot-b">
+              <section class="nd-hcol">
+                <header class="nd-hcol-h">
+                  <span class="lbl">${I.star}<span>즐겨찾기</span></span>
+                  <button type="button" id="nd-home-more-b">전체 보기${I.fwd}</button>
+                </header>
+                <div class="nd-hcol-b" id="nd-hcol-bb"></div>
+              </section>
+            </div>
+          </div>
         </div>
-        <div class="nd-home-acts">
-          <button type="button" class="nd-pill-act" id="nd-home-random">${I.shuffle}<span>무작위 문서</span></button>
-          <button type="button" class="nd-pill-act" id="nd-home-lists-btn">${I.list}<span>보관함</span></button>
-          <button type="button" class="nd-pill-act nd-dump-pill" id="nd-home-dump" title="다른 덤프 파일 열기">${I.folder}<span>${dumpDate() ? esc(dumpDate()) + ' 덤프' : '덤프 변경'}</span></button>
-        </div>
-        <div class="nd-home-lists" id="nd-home-lists"></div>
       </div>`, { side: false, hideTopSearch: true, home: true });
     const bq = $('#nd-bigq');
     attachSuggest(bq, $('#nd-bigsugg'));
     setTimeout(() => bq.focus(), 30);
-    $('#nd-home-random').onclick = randomDoc;
-    $('#nd-home-lists-btn').onclick = () => openDrawer();
     $('#nd-home-dump').onclick = pickDump;
-    refreshHomeLists();
+    $('#nd-home-more-h').onclick = () => openDrawer('history');
+    $('#nd-home-more-b').onclick = () => openDrawer('bookmarks');
+    drawHomeGlow();
+    refreshHomeLists(true);
   }
   function homeRowHtml(title, meta) {
     const ns = nsOf(title);
@@ -635,7 +699,7 @@
       `<span class="t">${esc(name)}</span>` +
       (meta ? `<small>${esc(meta)}</small>` : '') + '</a>';
   }
-  async function refreshHomeLists() {
+  async function refreshHomeLists(initial) {
     const box = $('#nd-home-lists');
     if (!box) return;
     try {
@@ -643,29 +707,21 @@
       const [hist, bms] = await Promise.all([recOn ? api('history') : Promise.resolve([]), api('bookmarks')]);
       if (!$('#nd-home-lists')) return;
       S.bookmarks = new Set(bms.map((b) => b.title));
-      const cols = [];
-      if (hist.length) {
-        cols.push(`<section class="nd-hcard">
-          <header class="nd-hcard-h">
-            <span class="lbl">${I.clock}<span>최근 본 문서</span></span>
-            <button type="button" id="nd-home-more-h">전체 보기${I.fwd}</button>
-          </header>
-          <div class="nd-hcard-b">${hist.slice(0, 5).map((x) => homeRowHtml(x.title, ago(x.visited_at))).join('')}</div>
-        </section>`);
-      }
-      if (bms.length) {
-        cols.push(`<section class="nd-hcard">
-          <header class="nd-hcard-h">
-            <span class="lbl">${I.star}<span>즐겨찾기</span></span>
-            <button type="button" id="nd-home-more-b">전체 보기${I.fwd}</button>
-          </header>
-          <div class="nd-hcard-b">${bms.slice(0, 5).map((x) => homeRowHtml(x.title, '')).join('')}</div>
-        </section>`);
-      }
-      box.classList.toggle('single', cols.length === 1);
-      box.innerHTML = cols.join('');
-      const mh = $('#nd-home-more-h'); if (mh) mh.onclick = () => openDrawer('history');
-      const mb = $('#nd-home-more-b'); if (mb) mb.onclick = () => openDrawer('bookmarks');
+      const hasH = hist.length > 0;
+      const hasB = bms.length > 0;
+      const hb = $('#nd-hcol-hb'), bb = $('#nd-hcol-bb');
+      // 사라지는 칸은 줄어드는 동안 이전 내용을 잠시 유지해 빈 상자가 줄어들지 않게 한다
+      if (hasH || initial) hb.innerHTML = hist.slice(0, 5).map((x) => homeRowHtml(x.title, ago(x.visited_at))).join('');
+      if (hasB || initial) bb.innerHTML = bms.slice(0, 5).map((x) => homeRowHtml(x.title, '')).join('');
+      if (initial) box.classList.add('no-anim');
+      box.classList.toggle('is-hidden', !hasH && !hasB);
+      box.classList.toggle('has-h', hasH);
+      box.classList.toggle('has-b', hasB);
+      $('#nd-hslot-h').classList.toggle('off', !hasH);
+      $('#nd-hslot-b').classList.toggle('off', !hasB);
+      const wrap = $('#nd-home-wrap');
+      if (wrap) wrap.classList.toggle('is-empty', !hasH && !hasB);
+      if (initial) requestAnimationFrame(() => requestAnimationFrame(() => box.classList.remove('no-anim')));
     } catch (e) { /* 무시 */ }
   }
   function ago(ts) {
